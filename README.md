@@ -131,8 +131,15 @@ with "${PARTY_ID}" either 0 or 1.
 3 Application layer impl:
 - Naive pattern matching
 --- Equality protocol : boolean sharing of the input and gives us the output in boolean shares: 0 / 1.
------- B2A and dotproduct!
+------ using B2A and dotproduct! The dotproduct needs to happen in the boolean world!
 --- Bit2Arith preprocessing : 
 - Wildcard
 - Approximate
 --- Modified bit2A == last!
+
+
+First we implement Hamming.
+- Add Hamming distance test
+Then the equality protocol.
+- Add Equality test.
+
