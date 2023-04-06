@@ -125,3 +125,14 @@ $ ./bin/onnx2motion \
     --json
 ```
 with "${PARTY_ID}" either 0 or 1.
+
+
+
+3 Application layer impl:
+- Naive pattern matching
+--- Equality protocol : boolean sharing of the input and gives us the output in boolean shares: 0 / 1.
+------ B2A and dotproduct!
+--- Bit2Arith preprocessing : 
+- Wildcard
+- Approximate
+--- Modified bit2A == last!
