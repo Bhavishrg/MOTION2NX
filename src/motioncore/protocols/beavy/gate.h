@@ -36,6 +36,8 @@ class XCOTBitReceiver;
 }  // namespace ENCRYPTO::ObliviousTransfer
 
 namespace MOTION {
+
+using WireVector = std::vector<std::shared_ptr<NewWire>>;
 template <typename T>
 class BitIntegerMultiplicationBitSide;
 template <typename T>
@@ -150,6 +152,34 @@ class BooleanBEAVYINVGate : public detail::BasicBooleanBEAVYUnaryGate {
 
  private:
   bool is_my_job_;
+};
+
+template <typename T>
+class BooleanBEAVYHAMGate : public NewGate {
+ public:
+  BooleanBEAVYHAMGate(std::size_t gate_id, BEAVYProvider&, BooleanBEAVYWireVector&&);
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_setup_with_context(ExecutionContext&) override;
+  void evaluate_online() override;
+  void evaluate_online_with_context(ExecutionContext&) override;
+  beavy::ArithmeticBEAVYWireP<T>& get_output_wire() noexcept { return output_; };
+
+  private:
+  beavy::BooleanBEAVYWireVector input_;
+  BEAVYProvider& beavy_provider_;
+  std::size_t num_wires_;
+  std::vector<ENCRYPTO::BitVector<>> random_values_;
+  std::vector<std::unique_ptr<NewGate>> bit2a_gates_;
+  std::vector<MOTION::WireVector> arithmetic_wires_;
+  std::vector<ArithmeticBEAVYWireVector<T>> beavy_arithmetic_wires_;
+  std::vector<BooleanBEAVYWireP> boolean_wires_;
+
+  std::vector<ENCRYPTO::BitVector<>> public_bits_; // One element of vector corresponding to one wire.
+
+  beavy::ArithmeticBEAVYWireP<T> output_;
+  ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_;
 };
 
 class BooleanBEAVYXORGate : public detail::BasicBooleanBEAVYBinaryGate {

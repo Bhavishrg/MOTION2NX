@@ -651,6 +651,25 @@ template WireVector BEAVYProvider::basic_make_convert_bit_to_arithmetic_beavy_ga
 template WireVector BEAVYProvider::basic_make_convert_bit_to_arithmetic_beavy_gate<std::uint64_t>(
     BooleanBEAVYWireP);
 
+template <typename T>
+std::pair<NewGateP, WireVector>
+  BEAVYProvider::external_make_convert_bit_to_arithmetic_beavy_gate(BooleanBEAVYWireP in_a) {
+  auto gate_id = gate_register_.get_next_gate_id();
+  auto gate = std::make_unique<BooleanBitToArithmeticBEAVYGate<T>>(gate_id, *this, std::move(in_a));
+  auto output = gate->get_output_wire();
+  return {std::move(gate), {std::dynamic_pointer_cast<NewWire>(output)}};
+}
+
+template std::pair<NewGateP, WireVector> 
+BEAVYProvider::external_make_convert_bit_to_arithmetic_beavy_gate<std::uint8_t>(
+    BooleanBEAVYWireP);
+template std::pair<NewGateP, WireVector> 
+BEAVYProvider::external_make_convert_bit_to_arithmetic_beavy_gate<std::uint16_t>(BooleanBEAVYWireP);
+template std::pair<NewGateP, WireVector> 
+BEAVYProvider::external_make_convert_bit_to_arithmetic_beavy_gate<std::uint32_t>(BooleanBEAVYWireP);
+template std::pair<NewGateP, WireVector> 
+BEAVYProvider::external_make_convert_bit_to_arithmetic_beavy_gate<std::uint64_t>(BooleanBEAVYWireP);
+
 WireVector BEAVYProvider::make_convert_to_boolean_gmw_gate(BooleanBEAVYWireVector&& in_a) {
   auto gate_id = gate_register_.get_next_gate_id();
   auto gate = std::make_unique<BooleanBEAVYToGMWGate>(gate_id, *this, std::move(in_a));

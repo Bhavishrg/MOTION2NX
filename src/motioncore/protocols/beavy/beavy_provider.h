@@ -252,6 +252,10 @@ class BEAVYProvider : public GateFactory,
   template <typename T>
   WireVector basic_make_convert_bit_to_arithmetic_beavy_gate(BooleanBEAVYWireP in_a);
 
+  template <typename T>
+  std::pair<NewGateP, WireVector>
+  external_make_convert_bit_to_arithmetic_beavy_gate(BooleanBEAVYWireP in_a);
+
  private:
   WireVector make_convert_to_boolean_gmw_gate(BooleanBEAVYWireVector&& in_a);
   BooleanBEAVYWireVector make_convert_from_boolean_gmw_gate(const WireVector& in);
