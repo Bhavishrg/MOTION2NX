@@ -334,11 +334,24 @@ std::pair<NewGateP, WireVector> BEAVYProvider::construct_unary_gate(
   }
 }
 
+std::pair<NewGateP, WireVector> BEAVYProvider::construct_unary_gate(
+    ENCRYPTO::PrimitiveOperationType op, const WireVector& in_a) {
+  switch (op) {
+    case ENCRYPTO::PrimitiveOperationType::HAM:
+      return construct_ham_gate(in_a);
+    default:
+      throw std::logic_error(
+          fmt::format("BEAVY does not support the unary operation {}", ToString(op)));
+  }
+}
+
 std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_unary_gate(
     ENCRYPTO::PrimitiveOperationType op, const std::vector<std::shared_ptr<NewWire>>& in_a) {
   switch (op) {
     case ENCRYPTO::PrimitiveOperationType::INV:
       return make_inv_gate(in_a);
+    case ENCRYPTO::PrimitiveOperationType::HAM:
+      return make_ham_gate(in_a);
     case ENCRYPTO::PrimitiveOperationType::NEG:
       return make_neg_gate(in_a);
     case ENCRYPTO::PrimitiveOperationType::SQR:
