@@ -226,11 +226,13 @@ class BEAVYProvider : public GateFactory,
   std::pair<NewGateP, WireVector> construct_boolean_binary_gate(const WireVector& in_a,
                                                                 const WireVector& in_b);
   std::pair<NewGateP, WireVector> construct_inv_gate(const WireVector& in_a);
-  template std::pair<NewGateP, WireVector> BEAVYProvider::construct_ham_gate<std::uint64_t>(BooleanBEAVYWireP);
+  
   std::pair<NewGateP, WireVector> construct_xor_gate(const WireVector& in_a,
                                                      const WireVector& in_b);
   std::pair<NewGateP, WireVector> construct_and_gate(const WireVector& in_a,
                                                      const WireVector& in_b);
+
+  std::pair<NewGateP, WireVector> BEAVYProvider::construct_ham_gate<std::uint64_t>(BooleanBEAVYWireP);
 
   template <template <typename> class BinaryGate, typename T>
   WireVector make_arithmetic_unary_gate(const NewWireP& in_a);
