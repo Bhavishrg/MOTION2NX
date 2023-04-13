@@ -361,6 +361,8 @@ std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_unary_gate(
       return make_neg_gate(in_a);
     case ENCRYPTO::PrimitiveOperationType::SQR:
       return make_sqr_gate(in_a);
+    case ENCRYPTO::PrimitiveOperationType::HAM:
+      return make_ham_gate(in_a);
     default:
       throw std::logic_error(
           fmt::format("BEAVY does not support the unary operation {}", ToString(op)));
