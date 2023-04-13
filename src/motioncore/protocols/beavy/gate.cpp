@@ -509,6 +509,11 @@ void BooleanBEAVYHAMGate<T>::evaluate_online() {
     throw std::logic_error("BooleanBEAVYHAMGate::evaluate_online() not implemented");
 }
 
+template class BooleanBEAVYHAMGate<std::uint8_t>;
+template class BooleanBEAVYHAMGate<std::uint16_t>;
+template class BooleanBEAVYHAMGate<std::uint32_t>;
+template class BooleanBEAVYHAMGate<std::uint64_t>;
+
 BooleanBEAVYXORGate::BooleanBEAVYXORGate(std::size_t gate_id, BEAVYProvider&,
                                          BooleanBEAVYWireVector&& in_a,
                                          BooleanBEAVYWireVector&& in_b)
