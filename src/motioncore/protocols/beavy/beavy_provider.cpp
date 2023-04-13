@@ -403,19 +403,25 @@ WireVector BEAVYProvider::make_inv_gate(const WireVector& in_a) {
 
 
 
-template <typename T> std::pair<NewGateP, WireVector> BEAVYProvider::construct_ham_gate(
-    BooleanBEAVYWireP in_a) {
+// template <typename T> std::pair<NewGateP, WireVector> BEAVYProvider::construct_ham_gate(
+//     BooleanBEAVYWireP in_a) {
+//   auto gate_id = gate_register_.get_next_gate_id();
+//   auto gate = std::make_unique<BooleanBEAVYHAMGate<T>>(gate_id, *this, std::move(in_a));
+//   auto output = gate->get_output_wire();
+//   return {std::move(gate), {std::dynamic_pointer_cast<NewWire>(output)}};
+// }
+
+WireVector BEAVYProvider::make_ham_gate(const WireVector& in_a) {
   auto gate_id = gate_register_.get_next_gate_id();
   auto gate = std::make_unique<BooleanBEAVYHAMGate<T>>(gate_id, *this, std::move(in_a));
   auto output = gate->get_output_wire();
   return {std::move(gate), {std::dynamic_pointer_cast<NewWire>(output)}};
 }
 
-WireVector BEAVYProvider::make_ham_gate(const WireVector& in_a) {
-  auto [gate, output] = construct_ham_gate(in_a);
-  gate_register_.register_gate(std::move(gate));
-  return output;
-}
+template std::pair<NewGateP, WireVector> BEAVYProvider::make_ham_gate<std::uint8_t>(BooleanBEAVYWireP);
+template std::pair<NewGateP, WireVector> BEAVYProvider::make_ham_gate<std::uint16_t>(BooleanBEAVYWireP);
+template std::pair<NewGateP, WireVector> BEAVYProvider::make_ham_gate<std::uint32_t>(BooleanBEAVYWireP);
+template std::pair<NewGateP, WireVector> BEAVYProvider::make_ham_gate<std::uint64_t>(BooleanBEAVYWireP);
 
 template <typename BinaryGate, bool plain>
 std::pair<NewGateP, WireVector> BEAVYProvider::construct_boolean_binary_gate(
