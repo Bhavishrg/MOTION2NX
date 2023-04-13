@@ -400,6 +400,8 @@ WireVector BEAVYProvider::make_inv_gate(const WireVector& in_a) {
   return output;
 }
 
+template std::pair<NewGateP, WireVector> 
+BEAVYProvider::construct_ham_gate<std::uint64_t>(BooleanBEAVYWireP);
 
 
 template <typename T> std::pair<NewGateP, WireVector> BEAVYProvider::construct_ham_gate(
