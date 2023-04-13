@@ -334,6 +334,23 @@ std::pair<NewGateP, WireVector> BEAVYProvider::construct_unary_gate(
   }
 }
 
+template <typename T>
+std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_ham_gate(
+     const WireVector& in_a) {
+   auto gate_id = gate_register_.get_next_gate_id();
+   auto gate = std::make_unique<BooleanBEAVYHAMGate<T>>(gate_id, *this, cast_wires(in_a));
+   auto output = gate->get_output_wires();
+   return {std::move(gate), cast_wires(std::move(output))};
+ }
+
+ WireVector BEAVYProvider::make_ham_gate(const WireVector& in_a) {
+   // TODO(bhavishg): change later to support other types (T) if needed.
+   // Currently only supports uint64_t.
+   auto [gate, output] = construct_ham_gate<uint64_t>(in_a);
+   gate_register_.register_gate(std::move(gate));
+   return output;
+ }
+
 std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_unary_gate(
     ENCRYPTO::PrimitiveOperationType op, const std::vector<std::shared_ptr<NewWire>>& in_a) {
   switch (op) {
