@@ -410,7 +410,7 @@ WireVector BEAVYProvider::make_inv_gate(const WireVector& in_a) {
 std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_ham_gate(
     const WireVector& in_a) {
   auto gate_id = gate_register_.get_next_gate_id();
-  auto gate = std::make_unique<BooleanBEAVYHAMGate>(gate_id, *this, cast_wires(in_a));
+  auto gate = std::make_unique<BooleanBEAVYHAMGate>(uint64_t T);
   auto output = gate->get_output_wires();
   return {std::move(gate), cast_wires(std::move(output))};
 }
