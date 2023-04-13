@@ -339,8 +339,9 @@ std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_ham_gat
      const WireVector& in_a) {
    auto gate_id = gate_register_.get_next_gate_id();
    auto gate = std::make_unique<BooleanBEAVYHAMGate<T>>(gate_id, *this, cast_wires(in_a));
-   auto output = gate->get_output_wires();
-   return {std::move(gate), cast_wires(std::move(output))};
+   auto output = gate->get_output_wire(); // This is a single Arithmetic Wire.
+   // Convert the Arithmetic Wire to a vector of wires and return.
+   return {std::move(gate), {cast_arith_wire(output)}};
  }
 
  WireVector BEAVYProvider::make_ham_gate(const WireVector& in_a) {
