@@ -402,7 +402,7 @@ BooleanBEAVYHAMGate<T>::BooleanBEAVYHAMGate(std::size_t gate_id, BEAVYProvider& 
       external_make_convert_bit_to_arithmetic_beavy_gate<std::uint64_t>(boolean_wires_[i]);
       bit2a_gates_[i] = std::move(gate_wires.first);
       arithmetic_wires_[i] = std::move(gate_wires.second);
-      beavy_arithmetic_wires_[i].push_back(dynamic_ptr_cast<ArithmeticBEAVYWire<T>>(arithmetic_wires_[i][0]));
+      beavy_arithmetic_wires_[i].push_back(dynamic_pointer_cast<ArithmeticBEAVYWire<T>>(arithmetic_wires_[i][0]));
       assert(arithmetic_wires_[i].size() == 1); // Wire vector size should be 1.
       assert(beavy_arithmetic_wires_[i].size() == 1);
     }
@@ -445,8 +445,8 @@ void BooleanBEAVYHAMGate<T>::evaluate_setup_with_context(ExecutionContext& conte
   }
   ENCRYPTO::BitVector<> for_other_party;
   for (int i = 0; i < this->num_wires_; i++) {
-    this->inputs_[i]->wait_setup();
-    auto tmp = (this->inputs_[i]->get_secret_share()) ^ random_values_[i]; // simd = num_simd;
+    this->input_[i]->wait_setup();
+    auto tmp = (this->input_[i]->get_secret_share()) ^ random_values_[i]; // simd = num_simd;
     for_other_party.Append(tmp);
   }
   beavy_provider_.send_bits_message(1 - my_id, gate_id_, for_other_party);
@@ -473,8 +473,8 @@ void BooleanBEAVYHAMGate<T>::evaluate_online_with_context(ExecutionContext& cont
 
   std::vector<ENCRYPTO::BitVector<>> a;
   for (int i = 0; i < this->num_wires_; i++) {
-    this->inputs_[i]->wait_online();
-    auto public_value = this->inputs_[i]->get_public_share();
+    this->input_[i]->wait_online();
+    auto public_value = this->input_[i]->get_public_share();
     a.push_back(public_value ^ public_bits_[i]);
     #pragma omp parallel for
     for (int j = 0; j < num_simd; ++j) {
