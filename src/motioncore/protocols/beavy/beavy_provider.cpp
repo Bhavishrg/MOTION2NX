@@ -407,8 +407,8 @@ template <typename T> std::pair<NewGateP, WireVector>
     const WireVector& in_a) {
   auto gate_id = gate_register_.get_next_gate_id();
   auto gate = std::make_unique<BooleanBEAVYHAMGate<T>>(gate_id, *this, std::move(in_a));
-  auto output = gate->get_output_wires();
-  return {std::move(gate), cast_wires(std::move(output))};
+  auto output = gate->get_output_wire();
+  return {std::move(gate), {std::dynamic_pointer_cast<NewWire>(output)}};
 }
 
 WireVector BEAVYProvider::make_ham_gate(const WireVector& in_a) {
