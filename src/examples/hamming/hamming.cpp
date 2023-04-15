@@ -1,3 +1,25 @@
+// MIT License
+//
+// Copyright (c) 2021 Lennart Braun
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -20,10 +42,14 @@
 #include "communication/tcp_transport.h"
 #include "statistics/analysis.h"
 #include "utility/logger.h"
-
-
+#include "protocols/beavy/wire.h"
+#include "protocols/beavy/gate.h"
+#include "protocols/beavy/beavy_provider.h"
+#include "utility/bit_vector.h"
+#include "protocols/beavy/beavy_provider.cpp"
 
 namespace po = boost::program_options;
+using namespace MOTION::proto::beavy;
 
 struct Options {
   std::size_t threads;
@@ -38,7 +64,6 @@ struct Options {
   MOTION::Communication::tcp_parties_config tcp_config;
   bool no_run = false;
 };
-
 
 std::optional<Options> parse_program_options(int argc, char* argv[]) {
   Options options;
@@ -63,7 +88,24 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
     ;
   // clang-format on
 
-
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  bool help = vm["help"].as<bool>();
+  if (help) {
+    std::cerr << desc << "\n";
+    return std::nullopt;
+  }
+  if (vm.count("config-file")) {
+    std::ifstream ifs(vm["config-file"].as<std::string>().c_str());
+    po::store(po::parse_config_file(ifs, desc), vm);
+  }
+  try {
+    po::notify(vm);
+  } catch (std::exception& e) {
+    std::cerr << "error:" << e.what() << "\n\n";
+    std::cerr << desc << "\n";
+    return std::nullopt;
+  }
 
   options.my_id = vm["my-id"].as<std::size_t>();
   options.threads = vm["threads"].as<std::size_t>();
@@ -72,42 +114,17 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   options.num_simd = vm["num-simd"].as<std::size_t>();
   options.sync_between_setup_and_online = vm["sync-between-setup-and-online"].as<bool>();
   options.no_run = vm["no-run"].as<bool>();
-  if (options.my_id > 1) {
-    std::cerr << "my-id must be one of 0 and 1\n";
-    return std::nullopt;
-  }
-
-
 
   auto arithmetic_protocol = vm["arithmetic-protocol"].as<std::string>();
-  boost::algorithm::to_lower(arithmetic_protocol);
-  if (arithmetic_protocol == "gmw") {
-    options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticGMW;
-  } else if (arithmetic_protocol == "beavy") {
-    options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticBEAVY;
-  } else {
-    std::cerr << "invalid protocol: " << arithmetic_protocol << "\n";
-    return std::nullopt;
-  }
+  options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticBEAVY;
   auto boolean_protocol = vm["boolean-protocol"].as<std::string>();
-  boost::algorithm::to_lower(boolean_protocol);
-  if (boolean_protocol == "yao") {
-    options.boolean_protocol = MOTION::MPCProtocol::Yao;
-  } else if (boolean_protocol == "gmw") {
-    options.boolean_protocol = MOTION::MPCProtocol::BooleanGMW;
-  } else if (boolean_protocol == "beavy") {
-    options.boolean_protocol = MOTION::MPCProtocol::BooleanBEAVY;
-  } else {
-    std::cerr << "invalid protocol: " << boolean_protocol << "\n";
-    return std::nullopt;
-  }
+  options.boolean_protocol = MOTION::MPCProtocol::BooleanBEAArithmeticBEAVY;
 
   options.input_value = vm["input-value"].as<std::uint64_t>();
 
-
   const auto parse_party_argument =
       [](const auto& s) -> std::pair<std::size_t, MOTION::Communication::tcp_connection_config> {
-    const static std::regex party_argument_re("([01]),([^,]+),(\\d{1,5})");
+    const static std::regex party_argument_re("([012]),([^,]+),(\\d{1,5})");
     std::smatch match;
     if (!std::regex_match(s, match, party_argument_re)) {
       throw std::invalid_argument("invalid party argument");
@@ -139,6 +156,9 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   return options;
 }
 
+static std::vector<std::shared_ptr<NewWire>> cast_wires(BooleanBEAVYWireVector&& wires) {
+  return std::vector<std::shared_ptr<NewWire>>(std::begin(wires), std::end(wires));
+}
 
 std::unique_ptr<MOTION::Communication::CommunicationLayer> setup_communication(
     const Options& options) {
@@ -147,31 +167,109 @@ std::unique_ptr<MOTION::Communication::CommunicationLayer> setup_communication(
                                                                      helper.setup_connections());
 }
 
-auto create_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
-  // retrieve the gate factories for the chosen protocols
-  auto& gate_factory_arith = backend.get_gate_factory(options.arithmetic_protocol);
-  auto& gate_factory_bool = backend.get_gate_factory(options.boolean_protocol);
+std::vector<uint64_t> convert_to_binary(uint64_t x) {
+    std::vector<uint64_t> res;
+    for (uint64_t i = 0; i < 64; ++i) {
+        if (x%2 == 1) res.push_back(1);
+        else res.push_back(0);
+        x /= 2;
+    }
+    return res;
+}
 
-  // share the inputs using the arithmetic protocol
-  // NB: the inputs need to always be specified in the same order:
-  // here we first specify the input of party 0, then that of party 1
-  ENCRYPTO::ReusableFiberPromise<MOTION::IntegerValues<uint64_t>> input_promise;
-  MOTION::WireVector input_0_arith, input_1_arith;
-  if (options.my_id == 0) {
-    auto pair = gate_factory_arith.make_arithmetic_64_input_gate_my(options.my_id, 1);
-    input_promise = std::move(pair.first);
-    input_0_arith = std::move(pair.second);
-    input_1_arith = gate_factory_arith.make_arithmetic_64_input_gate_other(1 - options.my_id, 1);
-  } else {
-    input_0_arith = gate_factory_arith.make_arithmetic_64_input_gate_other(1 - options.my_id, 1);
-    auto pair = gate_factory_arith.make_arithmetic_64_input_gate_my(options.my_id, 1);
-    input_promise = std::move(pair.first);
-    input_1_arith = std::move(pair.second);
+auto make_boolean_share() {
+  BooleanBEAVYWireVector wires;
+  for (uint64_t j = 0; j < 1; ++j) {
+      auto wire = std::make_shared<BooleanBEAVYWire>(1);
+      wires.push_back(std::move(wire));
+  }
+  for (uint64_t i = 0 ; i < 1; ++i) {
+
+      wires[0]->get_public_share().Set(1 , i);
+      wires[0]->get_secret_share().Set(1 , i);
+
+  }
+  for (uint64_t j = 0; j < 1; ++j) {
+      wires[j]->set_setup_ready();
+      wires[j]->set_online_ready();
+  }
+  return wires;
+}
+
+void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
+
+  if (options.no_run) {
+    return;
   }
 
-  // convert the arithmetic shares into Boolean shares
-  auto input_0_bool = backend.convert(options.boolean_protocol, input_0_arith);
-  auto input_1_bool = backend.convert(options.boolean_protocol, input_1_arith);
+  MOTION::MPCProtocol arithmetic_protocol = options.arithmetic_protocol;
+  MOTION::MPCProtocol boolean_protocol = options.boolean_protocol;
 
+  auto& arithmetic_tof = backend.get_gate_factory(arithmetic_protocol);
+  auto& boolean_tof = backend.get_gate_factory(boolean_protocol);
+
+
+  std::cout << std::endl;
+  auto xy = make_boolean_share();
+  auto bo = cast_wires(xy);
+  auto output = boolean_tof.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, bo);
   
+  backend.run();
+
+  assert(output.size() == 1);
+  output[0]->wait_online();
+  auto ans = std::dynamic_pointer_cast<ArithmeticBEAVYWire<std::uint64_t>>(output[0]);
+  for (auto x : ans->get_public_share()) {
+    std::cout << x << std::endl;
+  }
+}
+
+void print_stats(const Options& options,
+                 const MOTION::Statistics::AccumulatedRunTimeStats& run_time_stats,
+                 const MOTION::Statistics::AccumulatedCommunicationStats& comm_stats) {
+  if (options.json) {
+    auto obj = MOTION::Statistics::to_json("millionaires_problem", run_time_stats, comm_stats);
+    obj.emplace("party_id", options.my_id);
+    obj.emplace("arithmetic_protocol", MOTION::ToString(options.arithmetic_protocol));
+    obj.emplace("boolean_protocol", MOTION::ToString(options.boolean_protocol));
+    obj.emplace("simd", options.num_simd);
+    obj.emplace("threads", options.threads);
+    obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
+    std::cout << obj << "\n";
+  } else {
+    std::cout << MOTION::Statistics::print_stats("millionaires_problem", run_time_stats,
+                                                 comm_stats);
+  }
+}
+
+int main(int argc, char* argv[]) {
+  auto options = parse_program_options(argc, argv);
+  if (!options.has_value()) {
+    return EXIT_FAILURE;
+  }
+
+  try {
+    auto comm_layer = setup_communication(*options);
+    auto logger = std::make_shared<MOTION::Logger>(options->my_id,
+                                                   boost::log::trivial::severity_level::trace);
+    comm_layer->set_logger(logger);
+    MOTION::Statistics::AccumulatedRunTimeStats run_time_stats;
+    MOTION::Statistics::AccumulatedCommunicationStats comm_stats;
+    for (std::size_t i = 0; i < options->num_repetitions; ++i) {
+      MOTION::TwoPartyBackend backend(*comm_layer, options->threads,
+                                      options->sync_between_setup_and_online, logger);
+      run_circuit(*options, backend);
+      comm_layer->sync();
+      comm_stats.add(comm_layer->get_transport_statistics());
+      comm_layer->reset_transport_statistics();
+      run_time_stats.add(backend.get_run_time_stats());
+    }
+    comm_layer->shutdown();
+    print_stats(*options, run_time_stats, comm_stats);
+  } catch (std::runtime_error& e) {
+    std::cerr << "ERROR OCCURRED: " << e.what() << "\n";
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
 }
