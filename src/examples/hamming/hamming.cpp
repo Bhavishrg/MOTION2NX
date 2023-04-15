@@ -47,9 +47,11 @@
 #include "protocols/beavy/beavy_provider.h"
 #include "utility/bit_vector.h"
 #include "protocols/beavy/beavy_provider.cpp"
+#include "wire/new_wire.h"
 
 namespace po = boost::program_options;
 using namespace MOTION::proto::beavy;
+using NewWire = MOTION::NewWire;
 
 struct Options {
   std::size_t threads;
@@ -118,7 +120,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   auto arithmetic_protocol = vm["arithmetic-protocol"].as<std::string>();
   options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticBEAVY;
   auto boolean_protocol = vm["boolean-protocol"].as<std::string>();
-  options.boolean_protocol = MOTION::MPCProtocol::BooleanBEAArithmeticBEAVY;
+  options.boolean_protocol = MOTION::MPCProtocol::BooleanBEAVY;
 
   options.input_value = vm["input-value"].as<std::uint64_t>();
 
@@ -156,7 +158,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   return options;
 }
 
-static std::vector<std::shared_ptr<NewWire>> cast_wires(BooleanBEAVYWireVector&& wires) {
+static std::vector<std::shared_ptr<NewWire>> cast_wires(BooleanBEAVYWireVector& wires) {
   return std::vector<std::shared_ptr<NewWire>>(std::begin(wires), std::end(wires));
 }
 
