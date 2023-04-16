@@ -181,16 +181,16 @@ std::vector<uint64_t> convert_to_binary(uint64_t x) {
 
 auto make_boolean_share() {
   BooleanBEAVYWireVector wires;
-  for (uint64_t j = 0; j < 1; ++j) {
-      auto wire = std::make_shared<BooleanBEAVYWire>(1);
-      wires.push_back(std::move(wire));
-  }
-  for (uint64_t i = 0 ; i < 1; ++i) {
 
-      wires[0]->get_public_share().Set(1 , i);
-      wires[0]->get_secret_share().Set(1 , i);
+  auto wire = std::make_shared<BooleanBEAVYWire>(1);
+  // setting random val?
+  wire->get_secret_share() = ENCRYPTO::BitVector<>::Random(1);
+  wire->get_public_share() = ENCRYPTO::BitVector<>::Random(1);
 
-  }
+  wires.push_back(std::move(wire));
+
+  
+
   for (uint64_t j = 0; j < 1; ++j) {
       wires[j]->set_setup_ready();
       wires[j]->set_online_ready();
@@ -249,7 +249,7 @@ int main(int argc, char* argv[]) {
   if (!options.has_value()) {
     return EXIT_FAILURE;
   }
-
+  
   try {
     auto comm_layer = setup_communication(*options);
     auto logger = std::make_shared<MOTION::Logger>(options->my_id,
