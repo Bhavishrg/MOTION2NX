@@ -31,6 +31,7 @@
 #include "statistics/run_time_stats.h"
 #include "utility/fiber_thread_pool/fiber_thread_pool.hpp"
 #include "utility/synchronized_queue.h"
+#include "executor/execution_context.h"
 #include "utility/logger.h"
 
 namespace MOTION {
@@ -73,6 +74,10 @@ void NewGateExecutor::evaluate_setup_online_multi_threaded(Statistics::RunTimeSt
   // create a pool to execute fibers
   ENCRYPTO::FiberThreadPool fpool(num_threads_, 2 * register_.get_num_gates());
 
+  ExecutionContext exec_ctx{.num_threads_ = num_threads_,
+                            .fpool_ = std::make_unique<ENCRYPTO::FiberThreadPool>(
+                                std::max(std::size_t{2}, num_threads_))};
+
   // ------------------------------ setup phase ------------------------------
   stats.record_start<Statistics::RunTimeStats::StatID::gates_setup>();
 
@@ -81,7 +86,7 @@ void NewGateExecutor::evaluate_setup_online_multi_threaded(Statistics::RunTimeSt
     for (auto& gate : register_.get_gates()) {
       if (gate->need_setup()) {
         fpool.post([&] {
-          gate->evaluate_setup();
+          gate->evaluate_setup_with_context(exec_ctx);
           register_.increment_gate_setup_counter();
         });
       }
@@ -107,7 +112,7 @@ void NewGateExecutor::evaluate_setup_online_multi_threaded(Statistics::RunTimeSt
     for (auto& gate : register_.get_gates()) {
       if (gate->need_online()) {
         fpool.post([&] {
-          gate->evaluate_online();
+          gate->evaluate_online_with_context(exec_ctx);
           register_.increment_gate_online_counter();
         });
       }
@@ -122,7 +127,7 @@ void NewGateExecutor::evaluate_setup_online_multi_threaded(Statistics::RunTimeSt
   if (logger_) {
     logger_->LogInfo("Finished with the online phase of the circuit gates");
   }
-
+  exec_ctx.fpool_->join();
   fpool.join();
 
   stats.record_end<Statistics::RunTimeStats::StatID::evaluate>();
