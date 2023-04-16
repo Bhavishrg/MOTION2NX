@@ -396,14 +396,15 @@ BooleanBEAVYHAMGate<T>::BooleanBEAVYHAMGate(std::size_t gate_id, BEAVYProvider& 
     for (int i = 0; i < this->num_wires_; i++) {
       boolean_wires_.push_back(std::make_shared<BooleanBEAVYWire>(num_simd));
     }
-
+    beavy_arithmetic_wires_.resize(this->num_wires_);
     for (int i = 0; i < this->num_wires_; i++) {
       auto gate_wires = beavy_provider.
       external_make_convert_bit_to_arithmetic_beavy_gate<std::uint64_t>(boolean_wires_[i]);
       bit2a_gates_[i] = std::move(gate_wires.first);
       arithmetic_wires_[i] = std::move(gate_wires.second);
-      beavy_arithmetic_wires_[i].push_back(dynamic_pointer_cast<ArithmeticBEAVYWire<T>>(arithmetic_wires_[i][0]));
       assert(arithmetic_wires_[i].size() == 1); // Wire vector size should be 1.
+      auto arith_wire_p = dynamic_pointer_cast<ArithmeticBEAVYWire<T>>(arithmetic_wires_[i][0]);
+      beavy_arithmetic_wires_[i].push_back({arith_wire_p});
       assert(beavy_arithmetic_wires_[i].size() == 1);
     }
 
