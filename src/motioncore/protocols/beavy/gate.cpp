@@ -388,8 +388,8 @@ template <typename T>
 BooleanBEAVYHAMGate<T>::BooleanBEAVYHAMGate(std::size_t gate_id, BEAVYProvider& beavy_provider,
                                          BooleanBEAVYWireVector&& in)
     : NewGate(gate_id), input_(std::move(in)), beavy_provider_(beavy_provider) {
-    std::size_t num_simd = in[0]->get_num_simd();
-    this->num_wires_ = in.size();
+    std::size_t num_simd = input_[0]->get_num_simd();
+    this->num_wires_ = input_.size();
     std::size_t my_id = beavy_provider_.get_my_id();
     bit2a_gates_.resize(this->num_wires_);
     arithmetic_wires_.resize(this->num_wires_);
