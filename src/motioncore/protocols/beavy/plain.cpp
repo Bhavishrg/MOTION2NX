@@ -193,6 +193,63 @@ void BooleanBEAVYANDPlainGate::evaluate_online() {
   }
 }
 
+void BooleanBEAVYDOTPlainGate::evaluate_setup() {
+  if constexpr (MOTION_VERBOSE_DEBUG) {
+    auto logger = beavy_provider_.get_logger();
+    if (logger) {
+      logger->LogTrace(
+          fmt::format("Gate {}: BooleanBEAVYDOTPlainGate::evaluate_setup start", gate_id_));
+    }
+  }
+
+  for (std::size_t wire_i = 0; wire_i < num_wires_; ++wire_i) {
+    const auto& wire_beavy = inputs_beavy_[wire_i];
+    const auto& wire_plain = inputs_plain_[wire_i];
+    auto& wire_out = outputs_[wire_i];
+    wire_beavy->wait_setup();
+    wire_plain->wait_online();
+    wire_out->get_secret_share() = wire_beavy->get_secret_share() & wire_plain->get_data();
+    wire_out->set_setup_ready();
+  }
+
+  if constexpr (MOTION_VERBOSE_DEBUG) {
+    auto logger = beavy_provider_.get_logger();
+    if (logger) {
+      logger->LogTrace(
+          fmt::format("Gate {}: BooleanBEAVYDOTPlainGate::evaluate_setup end", gate_id_));
+    }
+  }
+}
+
+void BooleanBEAVYDOTPlainGate::evaluate_online() {
+  if constexpr (MOTION_VERBOSE_DEBUG) {
+    auto logger = beavy_provider_.get_logger();
+    if (logger) {
+      logger->LogTrace(
+          fmt::format("Gate {}: BooleanBEAVYDOTPlainGate::evaluate_online start", gate_id_));
+    }
+  }
+
+  for (std::size_t wire_i = 0; wire_i < num_wires_; ++wire_i) {
+    const auto& wire_beavy = inputs_beavy_[wire_i];
+    const auto& wire_plain = inputs_plain_[wire_i];
+    auto& wire_out = outputs_[wire_i];
+    wire_beavy->wait_online();
+    wire_plain->wait_online();
+    wire_out->get_public_share() = wire_beavy->get_public_share() & wire_plain->get_data();
+    wire_out->set_online_ready();
+  }
+
+  if constexpr (MOTION_VERBOSE_DEBUG) {
+    auto logger = beavy_provider_.get_logger();
+    if (logger) {
+      logger->LogTrace(
+          fmt::format("Gate {}: BooleanBEAVYDOTPlainGate::evaluate_online end", gate_id_));
+    }
+  }
+}
+
+
 template <typename T>
 void ArithmeticBEAVYADDPlainGate<T>::evaluate_setup() {
   if constexpr (MOTION_VERBOSE_DEBUG) {

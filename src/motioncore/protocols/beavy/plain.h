@@ -93,6 +93,15 @@ class BooleanBEAVYANDPlainGate : public detail::BasicBooleanBEAVYPlainBinaryGate
   void evaluate_online() override;
 };
 
+class BooleanBEAVYDOTPlainGate : public detail::BasicBooleanBEAVYPlainBinaryGate {
+ public:
+  using detail::BasicBooleanBEAVYPlainBinaryGate::BasicBooleanBEAVYPlainBinaryGate;
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+};
+
 template <typename T>
 class ArithmeticBEAVYADDPlainGate : public detail::BasicArithmeticBEAVYPlainBinaryGate<T> {
  public:

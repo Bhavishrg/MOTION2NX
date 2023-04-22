@@ -11,6 +11,8 @@ add_subdirectory(millionaires_problem)
 add_subdirectory(sha256)
 add_subdirectory(triple_generator)
 add_subdirectory(hamming)
+add_subdirectory(mult)
+add_subdirectory(dot)
 
 if (MOTION_BUILD_ONNX_ADAPTER)
   add_subdirectory(onnx2motion)

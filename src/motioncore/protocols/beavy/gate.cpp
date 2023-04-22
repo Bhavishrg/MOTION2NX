@@ -575,7 +575,8 @@ void BooleanBEAVYANDGate::evaluate_setup() {
   }
 
   auto num_simd = inputs_a_[0]->get_num_simd();
-  auto num_bytes = Helpers::Convert::BitsToBytes(num_wires_ * num_simd);
+  std::cout<< "num_simd: " << num_simd << std::endl;
+  auto num_bytes = Helpers::Convert::BitsToBytes(num_wires_ * num_simd); // what is this?
   delta_a_share_.Reserve(num_bytes);
   delta_b_share_.Reserve(num_bytes);
   Delta_y_share_.Reserve(num_bytes);
@@ -645,6 +646,141 @@ void BooleanBEAVYANDGate::evaluate_online() {
     wire_o->set_online_ready();
   }
 }
+
+
+BooleanBEAVYDOTGate::BooleanBEAVYDOTGate(std::size_t gate_id, BEAVYProvider& beavy_provider,
+                                         BooleanBEAVYWireVector&& in_a,
+                                         BooleanBEAVYWireVector&& in_b)
+    : detail::BasicBooleanBEAVYBinaryGate(gate_id, std::move(in_a), std::move(in_b)),
+      beavy_provider_(beavy_provider),
+      ot_sender_(nullptr),
+      ot_receiver_(nullptr) {
+  auto num_bits = count_bits(inputs_a_);
+  auto num_wires = inputs_a_.size();
+  auto my_id = beavy_provider_.get_my_id();
+  share_future_ = beavy_provider_.register_for_bits_message(1 - my_id, gate_id_, num_wires_);
+  auto& otp = beavy_provider_.get_ot_manager().get_provider(1 - my_id);
+  ot_sender_ = otp.RegisterSendXCOTBit(num_bits);
+  ot_receiver_ = otp.RegisterReceiveXCOTBit(num_bits);
+}
+
+
+BooleanBEAVYDOTGate::~BooleanBEAVYDOTGate() = default;
+
+void BooleanBEAVYDOTGate::evaluate_setup() {
+  if constexpr (MOTION_VERBOSE_DEBUG) {
+    auto logger = beavy_provider_.get_logger();
+    if (logger) {
+      logger->LogTrace(fmt::format("Gate {}: BooleanBEAVYDOTGate::evaluate_setup start", gate_id_));
+    }
+  }
+
+  for (auto& wire_o : outputs_) {
+    wire_o->get_secret_share() = ENCRYPTO::BitVector<>::Random(1);
+    wire_o->set_setup_ready();
+  }
+
+  auto num_simd = inputs_a_[0]->get_num_simd();
+  auto num_bytes = Helpers::Convert::BitsToBytes(num_wires_ * num_simd);
+  delta_a_share_.Reserve(num_bytes);
+  delta_b_share_.Reserve(num_bytes);
+  Delta_y_share_.Reserve(num_bytes);
+
+
+  for (std::size_t wire_i = 0; wire_i < num_wires_; ++wire_i) {
+    const auto& wire_a = inputs_a_[wire_i];
+    const auto& wire_b = inputs_b_[wire_i];
+    const auto& wire_o = outputs_[wire_i];
+    wire_a->wait_setup();
+    wire_b->wait_setup();
+    delta_a_share_.Append(wire_a->get_secret_share());
+    delta_b_share_.Append(wire_b->get_secret_share());
+    // Delta_y_share_.Append(wire_o->get_secret_share());
+  }
+
+
+  auto delta_ab_share = delta_a_share_ & delta_b_share_;
+
+  ot_receiver_->SetChoices(delta_a_share_);
+  ot_receiver_->SendCorrections();
+  ot_sender_->SetCorrelations(delta_b_share_);
+  ot_sender_->SendMessages();
+  ot_receiver_->ComputeOutputs();
+  ot_sender_->ComputeOutputs();
+  delta_ab_share ^= ot_sender_->GetOutputs();
+  delta_ab_share ^= ot_receiver_->GetOutputs();
+  Delta_y_share_.Append(delta_ab_share);
+
+  
+
+  // distribute data among wires
+  // for (std::size_t wire_i = 0; wire_i < num_wires_; ++wire_i) {
+  //   Delta_y_share_.Append(ENCRYPTO::BitVector<>::XORReduceBitVector(delta_ab_share.Subset(wire_i * num_simd, (wire_i + 1) * num_simd)));
+  // }
+
+  
+
+  if constexpr (MOTION_VERBOSE_DEBUG) {
+    auto logger = beavy_provider_.get_logger();
+    if (logger) {
+      logger->LogTrace(fmt::format("Gate {}: BooleanBEAVYDOTGate::evaluate_setup end", gate_id_));
+    }
+  }
+}
+
+void BooleanBEAVYDOTGate::evaluate_online() {
+  auto num_simd = inputs_a_[0]->get_num_simd();
+  auto num_bits = num_wires_ * num_simd;
+  ENCRYPTO::BitVector<> Delta_a;
+  ENCRYPTO::BitVector<> Delta_b;
+  Delta_a.Reserve(Helpers::Convert::BitsToBytes(num_bits));
+  Delta_b.Reserve(Helpers::Convert::BitsToBytes(num_bits));
+
+  for (std::size_t wire_i = 0; wire_i < num_wires_; ++wire_i) {
+    const auto& wire_a = inputs_a_[wire_i];
+    wire_a->wait_online();
+    Delta_a.Append(wire_a->get_public_share());
+    const auto& wire_b = inputs_b_[wire_i];
+    wire_b->wait_online();
+    Delta_b.Append(wire_b->get_public_share());
+  }
+  
+  Delta_y_share_ ^= (Delta_a & delta_b_share_);
+  Delta_y_share_ ^= (Delta_b & delta_a_share_);
+
+  if (beavy_provider_.is_my_job(gate_id_)) {
+    Delta_y_share_ ^= (Delta_a & Delta_b);
+  }
+
+  ENCRYPTO::BitVector<> Delta_y_share;
+  Delta_y_share_.Reserve(num_wires_);
+
+  for (std::size_t wire_i = 0; wire_i < num_wires_; ++wire_i) {
+    Delta_y_share.Append(ENCRYPTO::BitVector<>::XORReduceBitVector(Delta_y_share_.Subset(wire_i * num_simd, (wire_i + 1) * num_simd)));
+  }
+
+
+  ENCRYPTO::BitVector<> sec_share;
+  sec_share.Reserve(num_wires_);
+  for (std::size_t wire_i = 0; wire_i < num_wires_; ++wire_i) {
+    auto& wire_o = outputs_[wire_i];
+    sec_share.Append(wire_o->get_secret_share());
+  }
+
+  std::cout<< "sec sh: "<< sec_share.GetSize()<<std::endl;
+  Delta_y_share ^= sec_share;
+
+  beavy_provider_.broadcast_bits_message(gate_id_, Delta_y_share);
+  Delta_y_share ^= share_future_.get();
+
+  // distribute data among wires
+  for (std::size_t wire_i = 0; wire_i < num_wires_; ++wire_i) {
+    auto& wire_o = outputs_[wire_i];
+    wire_o->get_public_share() = Delta_y_share.Subset(wire_i, wire_i+1);
+    wire_o->set_online_ready();
+  }
+}
+
 
 template <typename T>
 ArithmeticBEAVYInputGateSender<T>::ArithmeticBEAVYInputGateSender(

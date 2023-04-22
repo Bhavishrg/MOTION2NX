@@ -184,14 +184,16 @@ auto make_boolean_share() {
 
   auto wire = std::make_shared<BooleanBEAVYWire>(1);
   // setting random val?
-  ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector<>::Random(1);
-  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(1);
+  ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector<>::Random(10);
+  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(10);
   wire->get_secret_share() = mx;
   wire->get_public_share() = dx;
 
   std::cout << "mx: " << mx << " dx: " << dx << std::endl;
-
-  wires.push_back(std::move(wire));
+  for (uint64_t j = 0; j < 1; ++j){
+    wires.push_back(std::move(wire));
+  }
+  
 
   
 
@@ -203,53 +205,77 @@ auto make_boolean_share() {
 }
 
 void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
+  //auto [input_promise, output_future] = create_circuit(options, backend);
 
-  if (options.no_run) {
-    return;
-  }
+  ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector<>::Random(1);
+  std::cout<< mx << std::endl;
+  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(1);
 
-  MOTION::MPCProtocol arithmetic_protocol = options.arithmetic_protocol;
-  MOTION::MPCProtocol boolean_protocol = options.boolean_protocol;
+  auto x = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(1);
+  auto y = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(1);
+  auto& x_pub = x->get_secret_share();
+  auto& y_pub = y->get_secret_share();
+  x_pub = mx;
+  y_pub = mx;
+  auto& x_sec = x->get_public_share();
+  auto& y_sec = y->get_public_share();
+  x_sec = dx;
+  y_sec = dx;
+  x->set_setup_ready();
+  y->set_setup_ready();
+  x->set_online_ready();
+  y->set_online_ready();
 
-  auto& arithmetic_tof = backend.get_gate_factory(arithmetic_protocol);
-  auto& boolean_tof = backend.get_gate_factory(boolean_protocol);
-
-
-  std::cout << std::endl;
-  auto xy = make_boolean_share();
-  auto bo = cast_wires(xy);
-  auto output = boolean_tof.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, bo);
+  auto xx = std::dynamic_pointer_cast<MOTION::NewWire>(x);
+  auto yy = std::dynamic_pointer_cast<MOTION::NewWire>(y);
+  // Cast to wire vectors.
+  MOTION::WireVector X, Y;
   
-  backend.run();
+  for (uint64_t j = 0; j < 100; ++j) {
+        X.push_back(xx);
+        Y.push_back(yy);
+    }
+  
+  
+  
+  auto& gate_factory_arith = backend.get_gate_factory(options.boolean_protocol);
 
-  assert(output.size() == 1);
+    auto output = gate_factory_arith.make_binary_gate(
+    ENCRYPTO::PrimitiveOperationType::AND, X, Y);
+
+  // execute the protocol
+  backend.run();
   output[0]->wait_online();
-  auto ans = std::dynamic_pointer_cast<ArithmeticBEAVYWire<std::uint64_t>>(output[0]);
-  for (auto x : ans->get_public_share()) {
-    std::cout << "outshare: " << x << std::endl;
-  }
-  for (auto y : ans->get_secret_share()) {
-    std::cout << "outshare2: " << y << std::endl;
-  }
+//   assert(output.size() == 1);
+  // cast output wire vector to boolean beavy wire vector.
+  
+  for (uint64_t j = 0; j < 1; ++j) {
+        auto output_beavy = std::dynamic_pointer_cast<MOTION::proto::beavy::BooleanBEAVYWire>(output[j]);
+        std::cout << "The AND = \n\n";
+            std::cout << output_beavy->get_public_share().AsString() << "\n";
+            std::cout << output_beavy->get_secret_share().AsString() << "\n";
+
+    }
+  
 }
 
-// void print_stats(const Options& options,
-//                  const MOTION::Statistics::AccumulatedRunTimeStats& run_time_stats,
-//                  const MOTION::Statistics::AccumulatedCommunicationStats& comm_stats) {
-//   if (options.json) {
-//     auto obj = MOTION::Statistics::to_json("millionaires_problem", run_time_stats, comm_stats);
-//     obj.emplace("party_id", options.my_id);
-//     obj.emplace("arithmetic_protocol", MOTION::ToString(options.arithmetic_protocol));
-//     obj.emplace("boolean_protocol", MOTION::ToString(options.boolean_protocol));
-//     obj.emplace("simd", options.num_simd);
-//     obj.emplace("threads", options.threads);
-//     obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
-//     std::cout << obj << "\n";
-//   } else {
-//     std::cout << MOTION::Statistics::print_stats("millionaires_problem", run_time_stats,
-//                                                  comm_stats);
-//   }
-// }
+void print_stats(const Options& options,
+                 const MOTION::Statistics::AccumulatedRunTimeStats& run_time_stats,
+                 const MOTION::Statistics::AccumulatedCommunicationStats& comm_stats) {
+  if (options.json) {
+    auto obj = MOTION::Statistics::to_json("millionaires_problem", run_time_stats, comm_stats);
+    obj.emplace("party_id", options.my_id);
+    obj.emplace("arithmetic_protocol", MOTION::ToString(options.arithmetic_protocol));
+    obj.emplace("boolean_protocol", MOTION::ToString(options.boolean_protocol));
+    obj.emplace("simd", options.num_simd);
+    obj.emplace("threads", options.threads);
+    obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
+    std::cout << obj << "\n";
+  } else {
+    std::cout << MOTION::Statistics::print_stats("millionaires_problem", run_time_stats,
+                                                 comm_stats);
+  }
+}
 
 int main(int argc, char* argv[]) {
   auto options = parse_program_options(argc, argv);
@@ -274,7 +300,7 @@ int main(int argc, char* argv[]) {
       run_time_stats.add(backend.get_run_time_stats());
     }
     comm_layer->shutdown();
-    // print_stats(*options, run_time_stats, comm_stats);
+    print_stats(*options, run_time_stats, comm_stats);
   } catch (std::runtime_error& e) {
     std::cerr << "ERROR OCCURRED: " << e.what() << "\n";
     return EXIT_FAILURE;
