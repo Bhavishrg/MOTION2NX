@@ -398,6 +398,8 @@ std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_binary_gate(
       return make_add_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::MUL:
       return make_mul_gate(in_a, in_b);
+    // case ENCRYPTO::PrimitiveOperationType::EQEXP:
+    //   return make_eqexp_gate(in_a, in_b);
     default:
       throw std::logic_error(
           fmt::format("BEAVY does not support the binary operation {}", ToString(op)));
@@ -707,6 +709,15 @@ std::pair<NewGateP, WireVector>
   BEAVYProvider::external_make_convert_bit_to_arithmetic_beavy_gate(BooleanBEAVYWireP in_a) {
   auto gate_id = gate_register_.get_next_gate_id();
   auto gate = std::make_unique<BooleanBitToArithmeticBEAVYGate<T>>(gate_id, *this, std::move(in_a));
+  auto output = gate->get_output_wire();
+  return {std::move(gate), {std::dynamic_pointer_cast<NewWire>(output)}};
+}
+
+template <typename BinaryGate, bool plain = false>
+std::pair<NewGateP, WireVector>
+  BEAVYProvider::external_make_beavy_dot_gate(BooleanBEAVYWireP in_a, BooleanBEAVYWireP in_b) {
+  auto gate_id = gate_register_.get_next_gate_id();
+  auto gate = std::make_unique<BooleanBEAVYDOTGate>(gate_id, *this, std::move(in_a), std::move(in_b));
   auto output = gate->get_output_wire();
   return {std::move(gate), {std::dynamic_pointer_cast<NewWire>(output)}};
 }

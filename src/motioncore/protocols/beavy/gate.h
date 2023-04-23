@@ -182,6 +182,31 @@ class BooleanBEAVYHAMGate : public NewGate {
   ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_;
 };
 
+template <typename T>
+class BEAVYEQEXPGate : public NewGate {
+ public:
+  BEAVYEQEXPGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&,
+                                                              ArithmeticBEAVYWireP<T>&&);
+  bool need_setup() override { return true; }
+  bool need_online() override { return true; }
+  void evaluate_setup() override;
+  void evaluate_setup_with_context(ExecutionContext&) override;
+  void evaluate_online() override;
+  void evaluate_online_with_context(ExecutionContext&) override;
+  beavy::BooleanBEAVYWireVector& get_output_wire() noexcept { return output_; };
+
+  private:
+  beavy::ArithmeticBEAVYWireP<T> input_a_;
+  beavy::ArithmeticBEAVYWireP<T> input_b_;
+  BEAVYProvider& beavy_provider_;
+  std::vector<BooleanBEAVYWireP> values_a;
+  std::vector<BooleanBEAVYWireP> values_b;
+  std::vector<std::unique_ptr<NewGate>> dot_gates_;
+  std::size_t num_wires_;
+  beavy::BooleanBEAVYWireVector output_;
+  ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_;
+};
+
 class BooleanBEAVYXORGate : public detail::BasicBooleanBEAVYBinaryGate {
  public:
   BooleanBEAVYXORGate(std::size_t gate_id, BEAVYProvider&, BooleanBEAVYWireVector&&,
@@ -221,10 +246,12 @@ class BooleanBEAVYDOTGate : public detail::BasicBooleanBEAVYBinaryGate {
   bool need_online() const noexcept override { return true; }
   void evaluate_setup() override;
   void evaluate_online() override;
+  beavy::BooleanBEAVYWireP& get_output_wire() noexcept { return output_; };
 
  private:
   BEAVYProvider& beavy_provider_;
   ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_;
+  beavy::BooleanBEAVYWireP output_;
   ENCRYPTO::BitVector<> delta_a_share_;
   ENCRYPTO::BitVector<> delta_b_share_;
   ENCRYPTO::BitVector<> Delta_y_share_;
