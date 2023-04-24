@@ -398,6 +398,8 @@ std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_binary_gate(
       return make_add_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::MUL:
       return make_mul_gate(in_a, in_b);
+    case ENCRYPTO::PrimitiveOperationType::MULNI:
+      return make_mulni_gate(in_a, in_b);
     // case ENCRYPTO::PrimitiveOperationType::EQEXP:
     //   return make_eqexp_gate(in_a, in_b);
     default:
@@ -651,6 +653,11 @@ WireVector BEAVYProvider::make_mul_gate(const WireVector& in_a, const WireVector
   } else {
     return make_arithmetic_binary_gate<ArithmeticBEAVYMULGate>(in_a, in_b);
   }
+}
+
+WireVector BEAVYProvider::make_mulni_gate(const WireVector& in_a, const WireVector& in_b) {
+  // assume, at most one of the inputs is a plain wire or a Boolean wire
+    return make_arithmetic_binary_gate<ArithmeticBEAVYMULNIGate>(in_a, in_b);
 }
 
 WireVector BEAVYProvider::make_sqr_gate(const WireVector& in) {

@@ -428,6 +428,25 @@ class ArithmeticBEAVYMULGate : public detail::BasicArithmeticBEAVYBinaryGate<T> 
 };
 
 template <typename T>
+class ArithmeticBEAVYMULNIGate : public detail::BasicArithmeticBEAVYBinaryGate<T> {
+ public:
+  ArithmeticBEAVYMULNIGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&,
+                         ArithmeticBEAVYWireP<T>&&);
+  ~ArithmeticBEAVYMULNIGate();
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+
+ private:
+  BEAVYProvider& beavy_provider_;
+  ENCRYPTO::ReusableFiberFuture<std::vector<T>> share_future_;
+  std::vector<T> Delta_y_share_;
+  std::unique_ptr<MOTION::IntegerMultiplicationSender<T>> mult_sender_;
+  std::unique_ptr<MOTION::IntegerMultiplicationReceiver<T>> mult_receiver_;
+};
+
+template <typename T>
 class ArithmeticBEAVYSQRGate : public detail::BasicArithmeticBEAVYUnaryGate<T> {
  public:
   ArithmeticBEAVYSQRGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&);

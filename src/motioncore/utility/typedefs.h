@@ -44,6 +44,7 @@ enum class PrimitiveOperationType : std::uint8_t {
   NEG,  // for arithmetic circuit only
   ADD,  // for arithmetic circuit only
   MUL,  // for arithmetic circuit only
+  MULNI,  // for arithmetic circuit only
   SQR,  // for arithmetic circuit only
   // EQEXP,  // for arithmetic circuit only
   // conversions

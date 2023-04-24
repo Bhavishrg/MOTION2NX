@@ -248,6 +248,7 @@ class BEAVYProvider : public GateFactory,
   WireVector make_neg_gate(const WireVector& in_a);
   WireVector make_add_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_mul_gate(const WireVector& in_a, const WireVector& in_b);
+  WireVector make_mulni_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_sqr_gate(const WireVector& in_a);
   template <typename T>
   WireVector basic_make_convert_to_arithmetic_beavy_gate(BooleanBEAVYWireVector&& in_a);
