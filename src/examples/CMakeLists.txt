@@ -13,6 +13,7 @@ add_subdirectory(triple_generator)
 add_subdirectory(hamming)
 add_subdirectory(multni)
 add_subdirectory(dot)
+add_subdirectory(count)
 
 if (MOTION_BUILD_ONNX_ADAPTER)
   add_subdirectory(onnx2motion)

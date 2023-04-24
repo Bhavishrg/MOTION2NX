@@ -33,6 +33,10 @@
 namespace ENCRYPTO::ObliviousTransfer {
 class XCOTBitSender;
 class XCOTBitReceiver;
+template <typename T>
+class ACOTSender;
+template <typename T>
+class ACOTReceiver;
 }  // namespace ENCRYPTO::ObliviousTransfer
 
 namespace MOTION {
@@ -180,6 +184,28 @@ class BooleanBEAVYHAMGate : public NewGate {
 
   beavy::ArithmeticBEAVYWireP<T> output_;
   ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_;
+};
+
+template <typename T>
+class BooleanBEAVYCOUNTGate : public NewGate {
+ public:
+  BooleanBEAVYCOUNTGate(std::size_t gate_id, BEAVYProvider&, BooleanBEAVYWireVector&&);
+  ~BooleanBEAVYCOUNTGate();
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+  beavy::ArithmeticBEAVYWireP<T>& get_output_wire() noexcept { return output_; };
+
+ private:
+  using is_enabled_ = ENCRYPTO::is_unsigned_int_t<T>;
+  beavy::BooleanBEAVYWireVector inputs_;
+  beavy::ArithmeticBEAVYWireP<T> output_;
+  BEAVYProvider& beavy_provider_;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::ACOTSender<T>> ot_sender_;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::ACOTReceiver<T>> ot_receiver_;
+  std::vector<T> arithmetized_secret_share_;
+  ENCRYPTO::ReusableFiberFuture<std::vector<T>> share_future_;
 };
 
 template <typename T>

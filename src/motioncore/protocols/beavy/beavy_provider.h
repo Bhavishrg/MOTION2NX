@@ -220,6 +220,7 @@ class BEAVYProvider : public GateFactory,
   WireVector make_boolean_binary_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_inv_gate(const WireVector& in_a);
   WireVector make_ham_gate(const WireVector& in_a);
+  WireVector make_count_gate(const WireVector& in_a);
   WireVector make_xor_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_and_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_dot_gate(const WireVector& in_a, const WireVector& in_b);
@@ -235,6 +236,8 @@ class BEAVYProvider : public GateFactory,
                                                      const WireVector& in_b);
   std::pair<NewGateP, WireVector> construct_dot_gate(const WireVector& in_a,
                                                      const WireVector& in_b);
+  template <typename T>
+  std::pair<NewGateP, WireVector> construct_count_gate(const WireVector& in_a);
 
   template <template <typename> class BinaryGate, typename T>
   WireVector make_arithmetic_unary_gate(const NewWireP& in_a);
@@ -254,6 +257,8 @@ class BEAVYProvider : public GateFactory,
   WireVector basic_make_convert_to_arithmetic_beavy_gate(BooleanBEAVYWireVector&& in_a);
   WireVector make_convert_to_arithmetic_beavy_gate(BooleanBEAVYWireVector&& in_a);
 
+  
+ 
  public:
   // TODO: design API for bit x integer operations
   template <typename T>

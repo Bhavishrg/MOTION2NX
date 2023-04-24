@@ -352,6 +352,25 @@ std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_ham_gat
    return output;
  }
 
+template <typename T>
+std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::
+construct_count_gate(
+     const WireVector& in_a) {
+   auto gate_id = gate_register_.get_next_gate_id();
+   auto gate = std::make_unique<BooleanBEAVYCOUNTGate<T>>(gate_id, *this, cast_wires(in_a));
+   auto output = gate->get_output_wire(); // This is a single Arithmetic Wire.
+   // Convert the Arithmetic Wire to a vector of wires and return.
+   return {std::move(gate), {cast_arith_wire(output)}};
+ }
+
+ WireVector BEAVYProvider::make_count_gate(const WireVector& in_a) {
+   // TODO(bhavishg): change later to support other types (T) if needed.
+   // Currently only supports uint64_t.
+   auto [gate, output] = construct_count_gate<uint64_t>(in_a);
+   gate_register_.register_gate(std::move(gate));
+   return output;
+ }
+
 std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_unary_gate(
     ENCRYPTO::PrimitiveOperationType op, const std::vector<std::shared_ptr<NewWire>>& in_a) {
   switch (op) {
@@ -363,6 +382,8 @@ std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_unary_gate(
       return make_sqr_gate(in_a);
     case ENCRYPTO::PrimitiveOperationType::HAM:
       return make_ham_gate(in_a);
+    case ENCRYPTO::PrimitiveOperationType::COUNT:
+      return make_count_gate(in_a);
     default:
       throw std::logic_error(
           fmt::format("BEAVY does not support the unary operation {}", ToString(op)));
