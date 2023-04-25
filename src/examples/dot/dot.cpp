@@ -183,13 +183,12 @@ std::vector<uint64_t> convert_to_binary(uint64_t x) {
 void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
   //auto [input_promise, output_future] = create_circuit(options, backend);
 
-  ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector(3, false);
-  mx.Set(1, true);
-  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector(3, false);
+  ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector(5, false);
+  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector(5, false);
   std::cout<< "mx:" <<mx << " dx: "<<dx<< std::endl;
-  auto x = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(3);
+  auto x = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(5);
 
-  auto y = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(3);
+  auto y = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(5);
   auto& x_pub = x->get_secret_share();
   auto& y_pub = y->get_secret_share();
   x_pub = mx;
