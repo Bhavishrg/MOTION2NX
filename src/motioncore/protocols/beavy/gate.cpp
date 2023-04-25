@@ -385,6 +385,149 @@ void BooleanBEAVYINVGate::evaluate_online() {
 }
 
 template <typename T>
+BEAVYAHAMGate<T>::BEAVYAHAMGate(std::size_t gate_id, BEAVYProvider& beavy_provider,
+                                         ArithmeticBEAVYWireP<T>&& in)
+    : NewGate(gate_id), input_(std::move(in)), beavy_provider_(beavy_provider) {
+  
+    std::size_t num_simd = input_->get_num_simd();
+    std::size_t num_ri = ENCRYPTO::bit_size_v<T>;
+    std::size_t my_id = beavy_provider_.get_my_id();
+
+    bit2a_gates_.resize(num_ri);
+    arithmetic_wires_.resize(num_ri);
+
+    for (int i = 0; i < num_ri; i++) {
+      boolean_wires_.push_back(std::make_shared<BooleanBEAVYWire>(num_simd));
+    }
+
+    beavy_arithmetic_wires_.resize(num_ri);
+    for (int i = 0; i < num_ri; i++) {
+      auto gate_wires = beavy_provider.
+      external_make_convert_bit_to_arithmetic_beavy_gate<std::uint64_t>(boolean_wires_[i]);
+      bit2a_gates_[i] = std::move(gate_wires.first);
+      arithmetic_wires_[i] = std::move(gate_wires.second);
+      assert(arithmetic_wires_[i].size() == 1); // Wire vector size should be 1.
+      auto arith_wire_p = dynamic_pointer_cast<ArithmeticBEAVYWire<T>>(arithmetic_wires_[i][0]);
+      beavy_arithmetic_wires_[i].push_back({arith_wire_p});
+      assert(beavy_arithmetic_wires_[i].size() == 1);
+    }
+
+    output_ = std::make_shared<ArithmeticBEAVYWire<T>>(num_simd);
+    share_future_ = beavy_provider_.register_for_bits_message(1 - my_id, gate_id_, num_simd);
+  }
+
+template <typename T>
+void BEAVYAHAMGate<T>::evaluate_setup_with_context(ExecutionContext& context) {
+  std::size_t num_simd = input_->get_num_simd();
+  std::size_t my_id = beavy_provider_.get_my_id();
+
+  // Make wires!
+  std::size_t num_ri = ENCRYPTO::bit_size_v<T>;
+  random_values_.resize(num_ri);
+  
+  for (int i = 0; i < num_ri; i++) {
+    random_values_[i] = ENCRYPTO::BitVector<>::Random(num_simd);
+    boolean_wires_[i]->get_public_share() = ENCRYPTO::BitVector<>(num_simd);
+    // TODO(pranav): Make sure that the above value is all zero bits.
+    boolean_wires_[i]->get_secret_share() = random_values_[i];
+    boolean_wires_[i]->set_setup_ready();
+    boolean_wires_[i]->set_online_ready();
+  }
+
+  // Run the Bit2A protocol!
+  // TODO(pranav): Change this to parallel running.
+  for (int i = 0; i < num_ri; i++) {
+    bit2a_gates_[i]->evaluate_setup();
+  }
+
+  for (int i = 0; i < num_ri; i++) {
+    beavy_arithmetic_wires_[i][0]->wait_setup();
+    bit2a_gates_[i]->evaluate_online();
+  }
+
+  for (int i = 0; i < num_ri; i++) {
+    beavy_arithmetic_wires_[i][0]->wait_online();
+  }
+
+  
+  // for (int i = 0; i < num_ri; i++){
+  //   r->get_public_share() += (beavy_arithmetic_wires_[i][0]->get_public_share());
+  //   r->get_secret_share() += (beavy_arithmetic_wires_[i][0]->get_secret_share());
+  // }
+
+  // ENCRYPTO::BitVector<> for_other_party;
+  // for (int i = 0; i < this->num_wires_; i++) {
+  //   this->input_[i]->wait_setup();
+  //   auto tmp = (this->input_[i]->get_secret_share()) ^ random_values_[i]; // simd = num_simd;
+  //   for_other_party.Append(tmp);
+  // }
+  // beavy_provider_.send_bits_message(1 - my_id, gate_id_, for_other_party);
+  // auto other_party_share = share_future_.get();
+
+  // for (int i = 0; i < this->num_wires_; i++) {
+  //   auto myy = for_other_party.Subset(i * num_simd, (i + 1) * num_simd);
+  //   auto otherr = other_party_share.Subset(i * num_simd, (i + 1) * num_simd);
+  //   public_bits_.push_back(myy ^ otherr);
+  // }
+
+  // assert(public_bits_.size() == this->num_wires_);
+
+  output_->get_secret_share() = Helpers::RandomVector<T>(num_simd);
+  output_->set_setup_ready();
+}
+
+template <typename T>
+void BEAVYAHAMGate<T>::evaluate_online_with_context(ExecutionContext& context) {
+  std::size_t num_simd = input_->get_num_simd();
+  std::size_t my_id = beavy_provider_.get_my_id();
+  std::size_t num_ri = ENCRYPTO::bit_size_v<T>;
+  this->output_->wait_setup();
+
+  // std::vector<ENCRYPTO::BitVector<>> a;
+  // for (int i = 0; i < this->num_wires_; i++) {
+  //   this->input_[i]->wait_online();
+  //   auto public_value = this->input_[i]->get_public_share();
+  //   a.push_back(public_value ^ public_bits_[i]);
+  //   #pragma omp parallel for
+  //   for (int j = 0; j < num_simd; ++j) {
+  //     uint64_t ai = a.back().Get(j);
+  //     if (my_id == 0) {
+  //       if (i == 0) {
+  //         output_->get_public_share()[j] = ai + beavy_arithmetic_wires_[i][0]
+  //         ->get_public_share()[j] - 2*ai*beavy_arithmetic_wires_[i][0]->get_public_share()[j];
+  //       } else {
+  //         output_->get_public_share()[j] += ai + beavy_arithmetic_wires_[i][0]
+  //         ->get_public_share()[j] - 2*ai*beavy_arithmetic_wires_[i][0]->get_public_share()[j];
+  //       }
+  //     }
+  //     if (i == 0) {
+  //       output_->get_public_share()[j] = beavy_arithmetic_wires_[i][0]->get_secret_share()[j] * (2*ai - 1);
+  //     } else {
+  //       output_->get_public_share()[j] += beavy_arithmetic_wires_[i][0]->get_secret_share()[j] * (2*ai - 1);
+  //     }
+  //   }
+  // }
+  output_->get_public_share() = Helpers::RandomVector<T>(num_simd);
+  // IMPORTANT: output_ public shares are set. They are different for both the parties!
+  output_->set_online_ready();
+}
+
+template <typename T>
+void BEAVYAHAMGate<T>::evaluate_setup() {
+    throw std::logic_error("BEAVYAHAMGate::evaluate_setup() not implemented");
+}
+
+template <typename T>
+void BEAVYAHAMGate<T>::evaluate_online() {
+    throw std::logic_error("BEAVYAHAMGate::evaluate_online() not implemented");
+}
+
+template class BEAVYAHAMGate<std::uint8_t>;
+template class BEAVYAHAMGate<std::uint16_t>;
+template class BEAVYAHAMGate<std::uint32_t>;
+template class BEAVYAHAMGate<std::uint64_t>;
+
+template <typename T>
 BooleanBEAVYHAMGate<T>::BooleanBEAVYHAMGate(std::size_t gate_id, BEAVYProvider& beavy_provider,
                                          BooleanBEAVYWireVector&& in)
     : NewGate(gate_id), input_(std::move(in)), beavy_provider_(beavy_provider) {
@@ -440,6 +583,7 @@ void BooleanBEAVYHAMGate<T>::evaluate_setup_with_context(ExecutionContext& conte
     beavy_arithmetic_wires_[i][0]->wait_setup();
     bit2a_gates_[i]->evaluate_online();
   }
+
 
   for (int i = 0; i < this->num_wires_; i++) {
     beavy_arithmetic_wires_[i][0]->wait_online();

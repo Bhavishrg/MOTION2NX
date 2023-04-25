@@ -187,6 +187,36 @@ class BooleanBEAVYHAMGate : public NewGate {
 };
 
 template <typename T>
+class BEAVYAHAMGate : public NewGate {
+ public:
+  BEAVYAHAMGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&);
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_setup_with_context(ExecutionContext&) override;
+  void evaluate_online() override;
+  void evaluate_online_with_context(ExecutionContext&) override;
+  beavy::ArithmeticBEAVYWireP<T>& get_output_wire() noexcept { return output_; };
+
+  private:
+  beavy::ArithmeticBEAVYWireP<T> input_;
+  BEAVYProvider& beavy_provider_;
+  std::size_t num_wires_;
+  std::vector<ENCRYPTO::BitVector<>> random_values_;
+  std::vector<std::unique_ptr<NewGate>> bit2a_gates_;
+  std::vector<MOTION::WireVector> arithmetic_wires_;
+  std::vector<ArithmeticBEAVYWireVector<T>> beavy_arithmetic_wires_;
+  std::vector<BooleanBEAVYWireP> boolean_wires_;
+  std::vector<MOTION::WireVector> r;
+
+  std::vector<ENCRYPTO::BitVector<>> public_bits_; // One element of vector corresponding to one wire.
+
+  beavy::ArithmeticBEAVYWireP<T> output_;
+  ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_;
+};
+
+
+template <typename T>
 class BooleanBEAVYCOUNTGate : public NewGate {
  public:
   BooleanBEAVYCOUNTGate(std::size_t gate_id, BEAVYProvider&, BooleanBEAVYWireVector&&);
