@@ -353,8 +353,7 @@ std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_ham_gat
  }
 
 template <typename T>
-std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::
-construct_count_gate(
+std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_count_gate(
      const WireVector& in_a) {
    auto gate_id = gate_register_.get_next_gate_id();
    auto gate = std::make_unique<BooleanBEAVYCOUNTGate<T>>(gate_id, *this, cast_wires(in_a));
@@ -367,6 +366,22 @@ construct_count_gate(
    // TODO(bhavishg): change later to support other types (T) if needed.
    // Currently only supports uint64_t.
    auto [gate, output] = construct_count_gate<uint64_t>(in_a);
+   gate_register_.register_gate(std::move(gate));
+   return output;
+ }
+
+template <typename T>
+std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_eqexp_gate(const WireVector& in_a, const WireVector& in_b) {
+   auto gate_id = gate_register_.get_next_gate_id();
+   auto gate = std::make_unique<BEAVYEQEXPGate<T>>(gate_id, *this, cast_arith_wire<T>(in_a[0]), cast_arith_wire<T>(in_b[0]));
+   auto output = gate->get_output_wire(); 
+   return {std::move(gate), cast_wires(std::move(output))};
+ }
+
+ WireVector BEAVYProvider::make_eqexp_gate(const WireVector& in_a, const WireVector& in_b) {
+   // TODO(bhavishg): change later to support other types (T) if needed.
+   // Currently only supports uint64_t.
+   auto [gate, output] = construct_eqexp_gate<uint64_t>(in_a, in_b);
    gate_register_.register_gate(std::move(gate));
    return output;
  }

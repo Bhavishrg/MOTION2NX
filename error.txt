@@ -1,0 +1,26 @@
+Consolidate compiler generated dependencies of target flatc
+[ 11%] Built target flatc
+[ 15%] Built target fbs-generation
+[ 15%] Built target motion_config
+[ 16%] gather information about git repository and generating version.cpp
+[ 16%] Built target motion_version
+Consolidate compiler generated dependencies of target motion
+[ 16%] Building CXX object src/motioncore/CMakeFiles/motion.dir/base/two_party_backend.cpp.o
+[ 17%] Building CXX object src/motioncore/CMakeFiles/motion.dir/base/two_party_tensor_backend.cpp.o
+[ 18%] Building CXX object src/motioncore/CMakeFiles/motion.dir/protocols/beavy/beavy_provider.cpp.o
+[ 18%] Building CXX object src/motioncore/CMakeFiles/motion.dir/protocols/beavy/conversion.cpp.o
+[ 19%] Building CXX object src/motioncore/CMakeFiles/motion.dir/protocols/beavy/gate.cpp.o
+[ 19%] Building CXX object src/motioncore/CMakeFiles/motion.dir/protocols/beavy/plain.cpp.o
+[ 19%] Building CXX object src/motioncore/CMakeFiles/motion.dir/protocols/beavy/tensor_op.cpp.o
+[ 20%] Building CXX object src/motioncore/CMakeFiles/motion.dir/version.cpp.o
+[ 20%] Linking CXX static library ../../lib/libmotion.a
+[ 58%] Built target motion
+Consolidate compiler generated dependencies of target gtest
+[ 59%] Built target gtest
+Consolidate compiler generated dependencies of target gtest_main
+[ 60%] Built target gtest_main
+Consolidate compiler generated dependencies of target motiontest
+[ 61%] Building CXX object src/test/CMakeFiles/motiontest.dir/test_beavy.cpp.o
+[ 61%] Building CXX object src/test/CMakeFiles/motiontest.dir/test_beavy_tensor.cpp.o
+[ 61%] Building CXX object src/test/CMakeFiles/motiontest.dir/test_yao_tensor.cpp.o
+[ 62%] Linking CXX executable ../../bin/motiontest

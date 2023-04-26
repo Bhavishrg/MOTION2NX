@@ -828,93 +828,96 @@ BEAVYEQEXPGate<T>::BEAVYEQEXPGate(std::size_t gate_id, BEAVYProvider& beavy_prov
                                         ArithmeticBEAVYWireP<T>&& in_a, ArithmeticBEAVYWireP<T>&& in_b)
     : NewGate(gate_id), input_a_(std::move(in_a)), input_b_(std::move(in_b)), beavy_provider_(beavy_provider) {
     std::size_t num_simd = input_a_[0]->get_num_simd();
-    this->num_wires_ = input_a_.size();
+    // this->num_wires_ = input_a_.size();
     std::size_t my_id = beavy_provider_.get_my_id();
 
     output_ = std::make_shared<BooleanBEAVYWireVector>(num_simd);
-    share_future_ = beavy_provider_.register_for_bits_message(1 - my_id, gate_id_, num_wires_ * num_simd);
+    share_future_ = beavy_provider_.register_for_bits_message(1 - my_id, gate_id_, num_simd);
   }
 
 
-template <typename T>
-void BEAVYEQEXPGate<T>::evaluate_setup_with_context(ExecutionContext& context) {
-  std::size_t num_simd = input_a_[0]->get_num_simd();
-  std::size_t my_id = beavy_provider_.get_my_id();
+// template <typename T>
+// void BEAVYEQEXPGate<T>::evaluate_setup_with_context(ExecutionContext& context) {
 
-  values_a.resize(this->num_wires_);
-  values_b.resize(this->num_wires_);
+//   throw std::logic_error("BEAVYEQEXPGate::evaluate_setup() not implemented");
+// //   std::size_t num_simd = input_a_[0]->get_num_simd();
+// //   std::size_t my_id = beavy_provider_.get_my_id();
+
+// //   values_a.resize(this->num_wires_);
+// //   values_b.resize(this->num_wires_);
   
   
-  // make wires
-  for (int i = 0; i < this->num_wires_; i++) {
-    values_a[i]->get_public_share() = ENCRYPTO::BitVector<>(10); // should be set to mx 
-    values_a[i]->get_secret_share() = ENCRYPTO::BitVector<>(10);
-    values_a[i]->set_setup_ready();
+// //   // make wires
+// //   for (int i = 0; i < this->num_wires_; i++) {
+// //     values_a[i]->get_public_share() = ENCRYPTO::BitVector<>(10); // should be set to mx 
+// //     values_a[i]->get_secret_share() = ENCRYPTO::BitVector<>(10);
+// //     values_a[i]->set_setup_ready();
 
-    values_b[i]->get_public_share() = ENCRYPTO::BitVector<>(10);
-    values_b[i]->get_secret_share() = ENCRYPTO::BitVector<>(10); // should be set to mx 
-    values_b[i]->set_setup_ready();
-  }
-  // throw std::logic_error("BEAVYEQEXPGate::evaluate_setup() not implemented");
+// //     values_b[i]->get_public_share() = ENCRYPTO::BitVector<>(10);
+// //     values_b[i]->get_secret_share() = ENCRYPTO::BitVector<>(10); // should be set to mx 
+// //     values_b[i]->set_setup_ready();
+// //   }
+// //   // throw std::logic_error("BEAVYEQEXPGate::evaluate_setup() not implemented");
 
-  // TODO(pranav): Change this to parallel running.
-  for (int i = 0; i < this->num_wires_; i++) {
-    dot_gates_[i]->evaluate_setup();
-  }
+// //   // TODO(pranav): Change this to parallel running.
+// //   for (int i = 0; i < this->num_wires_; i++) {
+// //     dot_gates_[i]->evaluate_setup();
+// //   }
 
-  for (auto& wire_o : output_) {
-    wire_o->get_secret_share() = ENCRYPTO::BitVector<>::Random(1);
-    wire_o->set_setup_ready();
-  }
-}
+// //   for (auto& wire_o : output_) {
+// //     wire_o->get_secret_share() = ENCRYPTO::BitVector<>::Random(1);
+// //     wire_o->set_setup_ready();
+// //   }
+// }
 
-template <typename T>
-void BEAVYEQEXPGate<T>::evaluate_online_with_context(ExecutionContext& context) {
-  std::size_t num_simd = input_a_[0]->get_num_simd();
-  std::size_t my_id = beavy_provider_.get_my_id();
+// template <typename T>
+// void BEAVYEQEXPGate<T>::evaluate_online_with_context(ExecutionContext& context) {
+//   throw std::logic_error("BEAVYEQEXPGate::evaluate_setup() not implemented");
+//   // std::size_t num_simd = input_a_[0]->get_num_simd();
+//   // std::size_t my_id = beavy_provider_.get_my_id();
 
-  if(my_id==0){
-    ENCRYPTO::BitVector<> for_other_party;
-    for (int i = 0; i < this->num_wires_; i++) {
-      for_other_party.Append(values_a[i]->get_public_share());
-    }
-    beavy_provider_.send_bits_message(1 - my_id, gate_id_, for_other_party);
-    auto other_party_share_b = share_future_.get();
+//   // if(my_id==0){
+//   //   ENCRYPTO::BitVector<> for_other_party;
+//   //   for (int i = 0; i < this->num_wires_; i++) {
+//   //     for_other_party.Append(values_a[i]->get_public_share());
+//   //   }
+//   //   beavy_provider_.send_bits_message(1 - my_id, gate_id_, for_other_party);
+//   //   auto other_party_share_b = share_future_.get();
 
-    for (int i = 0; i < this->num_wires_; i++) {
-      auto myy = other_party_share_b.Subset(i * num_simd, (i + 1) * num_simd);
-      values_b[i]->get_public_share() = myy;
-    }
+//   //   for (int i = 0; i < this->num_wires_; i++) {
+//   //     auto myy = other_party_share_b.Subset(i * num_simd, (i + 1) * num_simd);
+//   //     values_b[i]->get_public_share() = myy;
+//   //   }
 
-  }
-  else{
-    ENCRYPTO::BitVector<> for_other_party;
-    for (int i = 0; i < this->num_wires_; i++) {
-      for_other_party.Append(values_b[i]->get_public_share());
-    }
-    beavy_provider_.send_bits_message(1 - my_id, gate_id_, for_other_party);
-    auto other_party_share_a = share_future_.get();
+//   // }
+//   // else{
+//   //   ENCRYPTO::BitVector<> for_other_party;
+//   //   for (int i = 0; i < this->num_wires_; i++) {
+//   //     for_other_party.Append(values_b[i]->get_public_share());
+//   //   }
+//   //   beavy_provider_.send_bits_message(1 - my_id, gate_id_, for_other_party);
+//   //   auto other_party_share_a = share_future_.get();
 
-    for (int i = 0; i < this->num_wires_; i++) {
-      auto myy = other_party_share_a.Subset(i * num_simd, (i + 1) * num_simd);
-      values_a[i]->get_public_share() = myy;
-    }
+//   //   for (int i = 0; i < this->num_wires_; i++) {
+//   //     auto myy = other_party_share_a.Subset(i * num_simd, (i + 1) * num_simd);
+//   //     values_a[i]->get_public_share() = myy;
+//   //   }
 
-  }
+//   // }
 
-  for (int i = 0; i < this->num_wires_; i++) {
-    values_a[i]->set_online_ready();
-    values_b[i]->set_online_ready();
-  }
-
-
-  for (int i = 0; i < this->num_wires_; i++) {
-    dot_gates_[i]->evaluate_online();
-  }
+//   // for (int i = 0; i < this->num_wires_; i++) {
+//   //   values_a[i]->set_online_ready();
+//   //   values_b[i]->set_online_ready();
+//   // }
 
 
+//   // for (int i = 0; i < this->num_wires_; i++) {
+//   //   dot_gates_[i]->evaluate_online();
+//   // }
 
-}
+
+
+// }
 
 template <typename T>
 void BEAVYEQEXPGate<T>::evaluate_setup() {
