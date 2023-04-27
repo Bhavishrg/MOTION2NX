@@ -187,7 +187,7 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
   ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector(5, false);
   std::cout<< "mx:" <<mx << " dx: "<<dx<< std::endl;
   auto x = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(5);
-
+  
   auto y = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(5);
   auto& x_pub = x->get_secret_share();
   auto& y_pub = y->get_secret_share();

@@ -1784,11 +1784,12 @@ ArithmeticBEAVYEQEXPGate<T>::ArithmeticBEAVYEQEXPGate(std::size_t gate_id,
       beavy_provider_(beavy_provider) {
   auto my_id = beavy_provider_.get_my_id();
   auto num_simd = this->input_a_->get_num_simd();
-  // share_future_ = beavy_provider_.register_for_ints_message<T>(1 - my_id, this->gate_id_,
-  //                                                              this->input_a_->get_num_simd());
+  size_t vec_size = 256;//this->input_b_->get_public_share()[0];
+  share_future_1 = beavy_provider_.register_for_bits_message(1 - my_id, this->gate_id_, vec_size*num_simd);
+  std::cout<< "dfsg"<< vec_size*num_simd<< std::endl;
   auto& otp = beavy_provider_.get_ot_manager().get_provider(1 - my_id);
-  // ot_sender_ = otp.RegisterSendXCOTBit(num_simd);
-  // ot_receiver_ = otp.RegisterReceiveXCOTBit(num_simd);
+  ot_sender_ = otp.RegisterSendXCOTBit(vec_size*num_simd);
+  ot_receiver_ = otp.RegisterReceiveXCOTBit(vec_size*num_simd);
 }
 
 template <typename T>
@@ -1796,13 +1797,72 @@ ArithmeticBEAVYEQEXPGate<T>::~ArithmeticBEAVYEQEXPGate() = default;
 
 template <typename T>
 void ArithmeticBEAVYEQEXPGate<T>::evaluate_setup() {
+  if constexpr (MOTION_VERBOSE_DEBUG) {
+    auto logger = beavy_provider_.get_logger();
+    if (logger) {
+      logger->LogTrace(fmt::format("Gate {}: BooleanBEAVYDOTGate::evaluate_setup start", this->gate_id));
+    }
+  }
+
+  auto num_simd = this->input_a_->get_num_simd();
+  size_t vec_size = 256;//this->input_b_->get_public_share()[0];
+
+  auto num_bytes = Helpers::Convert::BitsToBytes(vec_size * num_simd);
+  delta_a_share_.Reserve(num_bytes);
+  delta_b_share_.Reserve(num_bytes);
+  Delta_y_share_.Reserve(num_bytes);
+  ENCRYPTO::BitVector<> rv = ENCRYPTO::BitVector(vec_size * num_simd, false);
+  delta_a_share_.Append(rv);
+  delta_b_share_.Append(rv);
+  
+
+  auto delta_ab_share = delta_a_share_ & delta_b_share_;
+
+  ot_receiver_->SetChoices(delta_a_share_);
+  ot_receiver_->SendCorrections();
+  ot_sender_->SetCorrelations(delta_b_share_);
+  ot_sender_->SendMessages();
+  ot_receiver_->ComputeOutputs();
+  ot_sender_->ComputeOutputs();
+  delta_ab_share ^= ot_sender_->GetOutputs();
+  delta_ab_share ^= ot_receiver_->GetOutputs();
+  Delta_y_share_.Append(delta_ab_share);
+  
   this->outputs_.resize(1);
   this->outputs_[0]->get_secret_share() = ENCRYPTO::BitVector<>::Random(this->input_a_->get_num_simd());
   this->outputs_[0]->set_setup_ready();
+  
+  if constexpr (MOTION_VERBOSE_DEBUG) {
+    auto logger = beavy_provider_.get_logger();
+    if (logger) {
+      logger->LogTrace(fmt::format("Gate {}: ArithmeticBEAVYEQEXPGate::evaluate_setup end", this->gate_id));
+    }
+  }
 }
 
 template <typename T>
 void ArithmeticBEAVYEQEXPGate<T>::evaluate_online() {
+  auto my_id = beavy_provider_.get_my_id();
+  auto num_simd = this->input_a_->get_num_simd();
+  size_t vec_size = 256;//this->input_b_->get_public_share()[0];
+  pub_val_my_.Reserve(vec_size*num_simd);
+
+  for(int i=0; i<num_simd; ++i){
+    auto pos = this->input_a_->get_public_share()[i] % vec_size;
+    auto tmp = ENCRYPTO::BitVector<>(vec_size);
+    tmp.Set(true, pos);
+    pub_val_my_.Append(tmp);
+  }
+  std::cout<<"pv "<<this->gate_id_<<std::endl;
+  
+  beavy_provider_.broadcast_bits_message(this->gate_id_, pub_val_my_);
+  std::cout<<"here3.5"<<std::endl;
+  auto pvo = share_future_1.get();
+  std::cout<<"here4"<<std::endl;
+  // share_future_ = beavy_provider_.register_for_ints_message<T>(1 - my_id, this->gate_id_, vec_size*num_simd);
+  // beavy_provider_.broadcast_bits_message(this->gate_id_, pub_val_my_);
+  // share_future_.get();
+
   this->outputs_[0]->get_public_share() = ENCRYPTO::BitVector<>::Random(this->input_a_->get_num_simd());
   this->outputs_[0]->set_online_ready();
 }

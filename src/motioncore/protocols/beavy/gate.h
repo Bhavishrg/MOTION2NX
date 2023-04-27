@@ -485,8 +485,13 @@ class ArithmeticBEAVYEQEXPGate : public detail::BasicArithmeticBooleanBEAVYBinar
 
  private:
   BEAVYProvider& beavy_provider_;
-  ENCRYPTO::ReusableFiberFuture<std::vector<T>> share_future_;
-  std::vector<T> Delta_y_share_;
+  ENCRYPTO::BitVector<> pub_val_my_;
+  ENCRYPTO::BitVector<> pub_val_other_;
+  ENCRYPTO::BitVector<> random_val_;
+  ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_1;
+  ENCRYPTO::BitVector<> delta_a_share_;
+  ENCRYPTO::BitVector<> delta_b_share_;
+  ENCRYPTO::BitVector<> Delta_y_share_;
   std::unique_ptr<ENCRYPTO::ObliviousTransfer::XCOTBitSender> ot_sender_;
   std::unique_ptr<ENCRYPTO::ObliviousTransfer::XCOTBitReceiver> ot_receiver_;
 };
