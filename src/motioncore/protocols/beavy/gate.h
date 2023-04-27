@@ -217,26 +217,6 @@ class BEAVYAHAMGate : public NewGate {
 
 
 template <typename T>
-class BEAVYEQEXPGate : public NewGate {
- public:
-  BEAVYEQEXPGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&,
-                         ArithmeticBEAVYWireP<T>&&);
-  bool need_setup() const noexcept override { return true; }
-  bool need_online() const noexcept override { return true; }
-  void evaluate_setup() override;
-  void evaluate_online() override;
-  BooleanBEAVYWireVector& get_output_wire() noexcept { return output_; }
-
-  private:
-  ArithmeticBEAVYWireP<T> input_a_;
-  ArithmeticBEAVYWireP<T> input_b_;
-  BEAVYProvider& beavy_provider_;
-
-  BooleanBEAVYWireVector output_;
-  ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_;
-};
-
-template <typename T>
 class BooleanBEAVYCOUNTGate : public NewGate {
  public:
   BooleanBEAVYCOUNTGate(std::size_t gate_id, BEAVYProvider&, BooleanBEAVYWireVector&&);
@@ -433,6 +413,20 @@ class BasicBooleanXArithmeticBEAVYBinaryGate : public NewGate {
   ArithmeticBEAVYWireP<T> output_;
 };
 
+template <typename T>
+class BasicArithmeticBooleanBEAVYBinaryGate : public NewGate {
+ public:
+  BasicArithmeticBooleanBEAVYBinaryGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&,
+                                 ArithmeticBEAVYWireP<T>&&);
+  BooleanBEAVYWireVector& get_output_wires() noexcept { return outputs_; }
+
+ protected:
+  std::size_t num_wires_;
+  const ArithmeticBEAVYWireP<T> input_a_;
+  const ArithmeticBEAVYWireP<T> input_b_;
+  BooleanBEAVYWireVector outputs_;
+};
+
 }  // namespace detail
 
 template <typename T>
@@ -476,6 +470,25 @@ class ArithmeticBEAVYMULGate : public detail::BasicArithmeticBEAVYBinaryGate<T> 
   std::vector<T> Delta_y_share_;
   std::unique_ptr<MOTION::IntegerMultiplicationSender<T>> mult_sender_;
   std::unique_ptr<MOTION::IntegerMultiplicationReceiver<T>> mult_receiver_;
+};
+
+template <typename T>
+class ArithmeticBEAVYEQEXPGate : public detail::BasicArithmeticBooleanBEAVYBinaryGate<T> {
+ public:
+  ArithmeticBEAVYEQEXPGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&,
+                         ArithmeticBEAVYWireP<T>&&);
+  ~ArithmeticBEAVYEQEXPGate();
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+
+ private:
+  BEAVYProvider& beavy_provider_;
+  ENCRYPTO::ReusableFiberFuture<std::vector<T>> share_future_;
+  std::vector<T> Delta_y_share_;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::XCOTBitSender> ot_sender_;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::XCOTBitReceiver> ot_receiver_;
 };
 
 template <typename T>

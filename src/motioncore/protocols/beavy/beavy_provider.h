@@ -221,9 +221,9 @@ class BEAVYProvider : public GateFactory,
   WireVector make_inv_gate(const WireVector& in_a);
   WireVector make_ham_gate(const WireVector& in_a);
   WireVector make_count_gate(const WireVector& in_a);
-  WireVector make_eqexp_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_xor_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_and_gate(const WireVector& in_a, const WireVector& in_b);
+  WireVector make_eqexp_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_dot_gate(const WireVector& in_a, const WireVector& in_b);
   template <typename BinaryGate, bool plain = false>
   std::pair<NewGateP, WireVector> construct_boolean_binary_gate(const WireVector& in_a,
@@ -240,18 +240,19 @@ class BEAVYProvider : public GateFactory,
   template <typename T>
   std::pair<NewGateP, WireVector> construct_count_gate(const WireVector& in_a);
 
-  template <typename T>
-  std::pair<NewGateP, WireVector> construct_eqexp_gate(const WireVector& in_a, const WireVector& in_b);
-
   template <template <typename> class BinaryGate, typename T>
   WireVector make_arithmetic_unary_gate(const NewWireP& in_a);
   template <template <typename> class BinaryGate>
   WireVector make_arithmetic_unary_gate(const WireVector& in_a);
   template <template <typename> class BinaryGate, typename T, mixed_gate_mode_t mgm>
   WireVector make_arithmetic_binary_gate(const NewWireP& in_a, const NewWireP& in_b);
+  template <template <typename> class BinaryGate>
+  WireVector make_arithmetic_boolean_binary_gate(const WireVector& in_a, const WireVector& in_b);
   template <template <typename> class BinaryGate,
             mixed_gate_mode_t mgm = mixed_gate_mode_t::arithmetic>
   WireVector make_arithmetic_binary_gate(const WireVector& in_a, const WireVector& in_b);
+  template <template <typename> class BinaryGate, typename T>
+  std::pair<NewGateP, WireVector> construct_arithmetic_boolean_binary_gate(const NewWireP& in_a, const NewWireP& in_b);
   WireVector make_neg_gate(const WireVector& in_a);
   WireVector make_add_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_mul_gate(const WireVector& in_a, const WireVector& in_b);

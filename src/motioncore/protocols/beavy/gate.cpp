@@ -823,112 +823,6 @@ template class BooleanBEAVYCOUNTGate<std::uint16_t>;
 template class BooleanBEAVYCOUNTGate<std::uint32_t>;
 template class BooleanBEAVYCOUNTGate<std::uint64_t>;
 
-template <typename T>
-BEAVYEQEXPGate<T>::BEAVYEQEXPGate(std::size_t gate_id, BEAVYProvider& beavy_provider,
-                                        ArithmeticBEAVYWireP<T>&& in_a, ArithmeticBEAVYWireP<T>&& in_b)
-    : NewGate(gate_id), input_a_(std::move(in_a)), input_b_(std::move(in_b)), beavy_provider_(beavy_provider) {
-    std::size_t num_simd = input_a_[0]->get_num_simd();
-    // this->num_wires_ = input_a_.size();
-    std::size_t my_id = beavy_provider_.get_my_id();
-
-    output_ = std::make_shared<BooleanBEAVYWireVector>(num_simd);
-    share_future_ = beavy_provider_.register_for_bits_message(1 - my_id, gate_id_, num_simd);
-  }
-
-
-// template <typename T>
-// void BEAVYEQEXPGate<T>::evaluate_setup_with_context(ExecutionContext& context) {
-
-//   throw std::logic_error("BEAVYEQEXPGate::evaluate_setup() not implemented");
-// //   std::size_t num_simd = input_a_[0]->get_num_simd();
-// //   std::size_t my_id = beavy_provider_.get_my_id();
-
-// //   values_a.resize(this->num_wires_);
-// //   values_b.resize(this->num_wires_);
-  
-  
-// //   // make wires
-// //   for (int i = 0; i < this->num_wires_; i++) {
-// //     values_a[i]->get_public_share() = ENCRYPTO::BitVector<>(10); // should be set to mx 
-// //     values_a[i]->get_secret_share() = ENCRYPTO::BitVector<>(10);
-// //     values_a[i]->set_setup_ready();
-
-// //     values_b[i]->get_public_share() = ENCRYPTO::BitVector<>(10);
-// //     values_b[i]->get_secret_share() = ENCRYPTO::BitVector<>(10); // should be set to mx 
-// //     values_b[i]->set_setup_ready();
-// //   }
-// //   // throw std::logic_error("BEAVYEQEXPGate::evaluate_setup() not implemented");
-
-// //   // TODO(pranav): Change this to parallel running.
-// //   for (int i = 0; i < this->num_wires_; i++) {
-// //     dot_gates_[i]->evaluate_setup();
-// //   }
-
-// //   for (auto& wire_o : output_) {
-// //     wire_o->get_secret_share() = ENCRYPTO::BitVector<>::Random(1);
-// //     wire_o->set_setup_ready();
-// //   }
-// }
-
-// template <typename T>
-// void BEAVYEQEXPGate<T>::evaluate_online_with_context(ExecutionContext& context) {
-//   throw std::logic_error("BEAVYEQEXPGate::evaluate_setup() not implemented");
-//   // std::size_t num_simd = input_a_[0]->get_num_simd();
-//   // std::size_t my_id = beavy_provider_.get_my_id();
-
-//   // if(my_id==0){
-//   //   ENCRYPTO::BitVector<> for_other_party;
-//   //   for (int i = 0; i < this->num_wires_; i++) {
-//   //     for_other_party.Append(values_a[i]->get_public_share());
-//   //   }
-//   //   beavy_provider_.send_bits_message(1 - my_id, gate_id_, for_other_party);
-//   //   auto other_party_share_b = share_future_.get();
-
-//   //   for (int i = 0; i < this->num_wires_; i++) {
-//   //     auto myy = other_party_share_b.Subset(i * num_simd, (i + 1) * num_simd);
-//   //     values_b[i]->get_public_share() = myy;
-//   //   }
-
-//   // }
-//   // else{
-//   //   ENCRYPTO::BitVector<> for_other_party;
-//   //   for (int i = 0; i < this->num_wires_; i++) {
-//   //     for_other_party.Append(values_b[i]->get_public_share());
-//   //   }
-//   //   beavy_provider_.send_bits_message(1 - my_id, gate_id_, for_other_party);
-//   //   auto other_party_share_a = share_future_.get();
-
-//   //   for (int i = 0; i < this->num_wires_; i++) {
-//   //     auto myy = other_party_share_a.Subset(i * num_simd, (i + 1) * num_simd);
-//   //     values_a[i]->get_public_share() = myy;
-//   //   }
-
-//   // }
-
-//   // for (int i = 0; i < this->num_wires_; i++) {
-//   //   values_a[i]->set_online_ready();
-//   //   values_b[i]->set_online_ready();
-//   // }
-
-
-//   // for (int i = 0; i < this->num_wires_; i++) {
-//   //   dot_gates_[i]->evaluate_online();
-//   // }
-
-
-
-// }
-
-template <typename T>
-void BEAVYEQEXPGate<T>::evaluate_setup() {
-    throw std::logic_error("BEAVYEQEXPGate::evaluate_setup() not implemented");
-}
-
-template <typename T>
-void BEAVYEQEXPGate<T>::evaluate_online() {
-    throw std::logic_error("BEAVYEQEXPGate::evaluate_online() not implemented");
-}
-
 BooleanBEAVYXORGate::BooleanBEAVYXORGate(std::size_t gate_id, BEAVYProvider&,
                                          BooleanBEAVYWireVector&& in_a,
                                          BooleanBEAVYWireVector&& in_b)
@@ -1509,6 +1403,27 @@ template class BasicBooleanXArithmeticBEAVYBinaryGate<std::uint16_t>;
 template class BasicBooleanXArithmeticBEAVYBinaryGate<std::uint32_t>;
 template class BasicBooleanXArithmeticBEAVYBinaryGate<std::uint64_t>;
 
+template <typename T>
+BasicArithmeticBooleanBEAVYBinaryGate<T>::BasicArithmeticBooleanBEAVYBinaryGate(
+    std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&& in_a, ArithmeticBEAVYWireP<T>&& in_b)
+    : NewGate(gate_id),
+      num_wires_(1),
+      input_a_(std::move(in_a)),
+      input_b_(std::move(in_b)) {
+  auto num_simd = input_a_->get_num_simd();
+  if (input_a_->get_num_simd() != input_b_->get_num_simd()) {
+    throw std::logic_error("number of SIMD values need to be the same for all wires");
+  }
+  outputs_.reserve(num_wires_);
+  std::generate_n(std::back_inserter(outputs_), num_wires_,
+                  [num_simd] { return std::make_shared<BooleanBEAVYWire>(num_simd); });
+}
+
+template class BasicArithmeticBooleanBEAVYBinaryGate<std::uint8_t>;
+template class BasicArithmeticBooleanBEAVYBinaryGate<std::uint16_t>;
+template class BasicArithmeticBooleanBEAVYBinaryGate<std::uint32_t>;
+template class BasicArithmeticBooleanBEAVYBinaryGate<std::uint64_t>;
+
 }  // namespace detail
 
 template <typename T>
@@ -1858,6 +1773,45 @@ template class ArithmeticBEAVYMULGate<std::uint8_t>;
 template class ArithmeticBEAVYMULGate<std::uint16_t>;
 template class ArithmeticBEAVYMULGate<std::uint32_t>;
 template class ArithmeticBEAVYMULGate<std::uint64_t>;
+
+template <typename T>
+ArithmeticBEAVYEQEXPGate<T>::ArithmeticBEAVYEQEXPGate(std::size_t gate_id,
+                                                  BEAVYProvider& beavy_provider,
+                                                  ArithmeticBEAVYWireP<T>&& in_a,
+                                                  ArithmeticBEAVYWireP<T>&& in_b)
+    : detail::BasicArithmeticBooleanBEAVYBinaryGate<T>(gate_id, beavy_provider, std::move(in_a),
+                                                std::move(in_b)),
+      beavy_provider_(beavy_provider) {
+  auto my_id = beavy_provider_.get_my_id();
+  auto num_simd = this->input_a_->get_num_simd();
+  // share_future_ = beavy_provider_.register_for_ints_message<T>(1 - my_id, this->gate_id_,
+  //                                                              this->input_a_->get_num_simd());
+  auto& otp = beavy_provider_.get_ot_manager().get_provider(1 - my_id);
+  // ot_sender_ = otp.RegisterSendXCOTBit(num_simd);
+  // ot_receiver_ = otp.RegisterReceiveXCOTBit(num_simd);
+}
+
+template <typename T>
+ArithmeticBEAVYEQEXPGate<T>::~ArithmeticBEAVYEQEXPGate() = default;
+
+template <typename T>
+void ArithmeticBEAVYEQEXPGate<T>::evaluate_setup() {
+  this->outputs_.resize(1);
+  this->outputs_[0]->get_secret_share() = ENCRYPTO::BitVector<>::Random(this->input_a_->get_num_simd());
+  this->outputs_[0]->set_setup_ready();
+}
+
+template <typename T>
+void ArithmeticBEAVYEQEXPGate<T>::evaluate_online() {
+  this->outputs_[0]->get_public_share() = ENCRYPTO::BitVector<>::Random(this->input_a_->get_num_simd());
+  this->outputs_[0]->set_online_ready();
+}
+
+template class ArithmeticBEAVYEQEXPGate<std::uint8_t>;
+template class ArithmeticBEAVYEQEXPGate<std::uint16_t>;
+template class ArithmeticBEAVYEQEXPGate<std::uint32_t>;
+template class ArithmeticBEAVYEQEXPGate<std::uint64_t>;
+
 
 template <typename T>
 ArithmeticBEAVYSQRGate<T>::ArithmeticBEAVYSQRGate(std::size_t gate_id,

@@ -370,22 +370,6 @@ std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_count_g
    return output;
  }
 
-template <typename T>
-std::pair<std::unique_ptr<NewGate>, WireVector> BEAVYProvider::construct_eqexp_gate(const WireVector& in_a, const WireVector& in_b) {
-   auto gate_id = gate_register_.get_next_gate_id();
-   auto gate = std::make_unique<BEAVYEQEXPGate<T>>(gate_id, *this, cast_arith_wire<T>(in_a[0]), cast_arith_wire<T>(in_b[0]));
-   auto output = gate->get_output_wire(); 
-   return {std::move(gate), cast_wires(std::move(output))};
- }
-
- WireVector BEAVYProvider::make_eqexp_gate(const WireVector& in_a, const WireVector& in_b) {
-   // TODO(bhavishg): change later to support other types (T) if needed.
-   // Currently only supports uint64_t.
-   auto [gate, output] = construct_eqexp_gate<uint64_t>(in_a, in_b);
-   gate_register_.register_gate(std::move(gate));
-   return output;
- }
-
 std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_unary_gate(
     ENCRYPTO::PrimitiveOperationType op, const std::vector<std::shared_ptr<NewWire>>& in_a) {
   switch (op) {
@@ -436,8 +420,8 @@ std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_binary_gate(
       return make_mul_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::MULNI:
       return make_mulni_gate(in_a, in_b);
-    // case ENCRYPTO::PrimitiveOperationType::EQEXP:
-    //   return make_eqexp_gate(in_a, in_b);
+    case ENCRYPTO::PrimitiveOperationType::EQEXP:
+      return make_eqexp_gate(in_a, in_b);
     default:
       throw std::logic_error(
           fmt::format("BEAVY does not support the binary operation {}", ToString(op)));
@@ -478,6 +462,24 @@ std::pair<NewGateP, WireVector> BEAVYProvider::construct_boolean_binary_gate(
 template <typename BinaryGate, bool plain>
 WireVector BEAVYProvider::make_boolean_binary_gate(const WireVector& in_a, const WireVector& in_b) {
   auto [gate, out] = construct_boolean_binary_gate<BinaryGate, plain>(in_a, in_b);
+  gate_register_.register_gate(std::move(gate));
+  return out;
+}
+
+template <template <typename> class BinaryGate, typename T>
+std::pair<NewGateP, WireVector> BEAVYProvider::construct_arithmetic_boolean_binary_gate(
+    const NewWireP& in_a, const NewWireP& in_b) {
+  BooleanBEAVYWireVector output;
+  auto gate_id = gate_register_.get_next_gate_id();
+  auto gate = std::make_unique<BinaryGate<T>>(gate_id, *this, cast_arith_wire<T>(in_a),
+                                                cast_arith_wire<T>(in_b));
+  output = gate->get_output_wires();
+  return {std::move(gate), cast_wires(std::move(output))};
+}
+
+template <template <typename> class BinaryGate>
+WireVector BEAVYProvider::make_arithmetic_boolean_binary_gate(const WireVector& in_a, const WireVector& in_b) {
+  auto [gate, out] = construct_arithmetic_boolean_binary_gate<BinaryGate, std::uint64_t>(in_a[0], in_b[0]);
   gate_register_.register_gate(std::move(gate));
   return out;
 }
@@ -548,6 +550,12 @@ WireVector BEAVYProvider::make_and_gate(const WireVector& in_a, const WireVector
   } else {
     return make_boolean_binary_gate<BooleanBEAVYANDGate>(in_a, in_b);
   }
+}
+
+WireVector BEAVYProvider::make_eqexp_gate(const WireVector& in_a, const WireVector& in_b) {
+
+    return make_arithmetic_boolean_binary_gate<ArithmeticBEAVYEQEXPGate>(in_a, in_b);
+
 }
 
 WireVector BEAVYProvider::make_dot_gate(const WireVector& in_a, const WireVector& in_b) {
