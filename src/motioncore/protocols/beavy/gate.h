@@ -80,6 +80,20 @@ class BasicBooleanBEAVYUnaryGate : public NewGate {
   BooleanBEAVYWireVector outputs_;
 };
 
+template <typename T>
+class BasicArithmeticBooleanBEAVYBinaryGate : public NewGate {
+ public:
+  BasicArithmeticBooleanBEAVYBinaryGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&,
+                                 ArithmeticBEAVYWireP<T>&&);
+  BooleanBEAVYWireVector& get_output_wires() noexcept { return outputs_; }
+
+ protected:
+  std::size_t num_wires_;
+  const ArithmeticBEAVYWireP<T> input_a_;
+  const ArithmeticBEAVYWireP<T> input_b_;
+  BooleanBEAVYWireVector outputs_;
+};
+
 }  // namespace detail
 
 class BEAVYProvider;
@@ -413,20 +427,6 @@ class BasicBooleanXArithmeticBEAVYBinaryGate : public NewGate {
   ArithmeticBEAVYWireP<T> output_;
 };
 
-template <typename T>
-class BasicArithmeticBooleanBEAVYBinaryGate : public NewGate {
- public:
-  BasicArithmeticBooleanBEAVYBinaryGate(std::size_t gate_id, BEAVYProvider&, ArithmeticBEAVYWireP<T>&&,
-                                 ArithmeticBEAVYWireP<T>&&);
-  BooleanBEAVYWireVector& get_output_wires() noexcept { return outputs_; }
-
- protected:
-  std::size_t num_wires_;
-  const ArithmeticBEAVYWireP<T> input_a_;
-  const ArithmeticBEAVYWireP<T> input_b_;
-  BooleanBEAVYWireVector outputs_;
-};
-
 }  // namespace detail
 
 template <typename T>
@@ -485,10 +485,11 @@ class ArithmeticBEAVYEQEXPGate : public detail::BasicArithmeticBooleanBEAVYBinar
 
  private:
   BEAVYProvider& beavy_provider_;
-  ENCRYPTO::BitVector<> pub_val_my_;
-  ENCRYPTO::BitVector<> pub_val_other_;
+  ENCRYPTO::BitVector<> pub_val_a_;
+  ENCRYPTO::BitVector<> pub_val_b_;
   ENCRYPTO::BitVector<> random_val_;
   ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_1;
+  ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_2;
   ENCRYPTO::BitVector<> delta_a_share_;
   ENCRYPTO::BitVector<> delta_b_share_;
   ENCRYPTO::BitVector<> Delta_y_share_;

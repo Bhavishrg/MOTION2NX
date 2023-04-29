@@ -1785,8 +1785,8 @@ ArithmeticBEAVYEQEXPGate<T>::ArithmeticBEAVYEQEXPGate(std::size_t gate_id,
   auto my_id = beavy_provider_.get_my_id();
   auto num_simd = this->input_a_->get_num_simd();
   size_t vec_size = 256;//this->input_b_->get_public_share()[0];
-  share_future_1 = beavy_provider_.register_for_bits_message(1 - my_id, this->gate_id_, vec_size*num_simd);
-  std::cout<< "dfsg"<< vec_size*num_simd<< std::endl;
+  share_future_1 = beavy_provider_.register_for_bits_message(1 - my_id, this->gate_id_, vec_size*num_simd, 0);
+  share_future_2 = beavy_provider_.register_for_bits_message(1 - my_id, this->gate_id_, num_simd, 1);
   auto& otp = beavy_provider_.get_ot_manager().get_provider(1 - my_id);
   ot_sender_ = otp.RegisterSendXCOTBit(vec_size*num_simd);
   ot_receiver_ = otp.RegisterReceiveXCOTBit(vec_size*num_simd);
@@ -1814,7 +1814,6 @@ void ArithmeticBEAVYEQEXPGate<T>::evaluate_setup() {
   ENCRYPTO::BitVector<> rv = ENCRYPTO::BitVector(vec_size * num_simd, false);
   delta_a_share_.Append(rv);
   delta_b_share_.Append(rv);
-  
 
   auto delta_ab_share = delta_a_share_ & delta_b_share_;
 
@@ -1827,10 +1826,14 @@ void ArithmeticBEAVYEQEXPGate<T>::evaluate_setup() {
   delta_ab_share ^= ot_sender_->GetOutputs();
   delta_ab_share ^= ot_receiver_->GetOutputs();
   Delta_y_share_.Append(delta_ab_share);
+
   
-  this->outputs_.resize(1);
+
   this->outputs_[0]->get_secret_share() = ENCRYPTO::BitVector<>::Random(this->input_a_->get_num_simd());
   this->outputs_[0]->set_setup_ready();
+
+
+  
   
   if constexpr (MOTION_VERBOSE_DEBUG) {
     auto logger = beavy_provider_.get_logger();
@@ -1845,25 +1848,58 @@ void ArithmeticBEAVYEQEXPGate<T>::evaluate_online() {
   auto my_id = beavy_provider_.get_my_id();
   auto num_simd = this->input_a_->get_num_simd();
   size_t vec_size = 256;//this->input_b_->get_public_share()[0];
-  pub_val_my_.Reserve(vec_size*num_simd);
+  
+ 
+  pub_val_b_.Reserve(vec_size*num_simd);
+  pub_val_a_.Reserve(vec_size*num_simd);
+  auto tmp = ENCRYPTO::BitVector<>(num_simd*vec_size); 
 
   for(int i=0; i<num_simd; ++i){
     auto pos = this->input_a_->get_public_share()[i] % vec_size;
-    auto tmp = ENCRYPTO::BitVector<>(vec_size);
-    tmp.Set(true, pos);
-    pub_val_my_.Append(tmp);
+    tmp.Set(true, (pos)*num_simd + i);
   }
-  std::cout<<"pv "<<this->gate_id_<<std::endl;
   
-  beavy_provider_.broadcast_bits_message(this->gate_id_, pub_val_my_);
-  std::cout<<"here3.5"<<std::endl;
-  auto pvo = share_future_1.get();
-  std::cout<<"here4"<<std::endl;
-  // share_future_ = beavy_provider_.register_for_ints_message<T>(1 - my_id, this->gate_id_, vec_size*num_simd);
-  // beavy_provider_.broadcast_bits_message(this->gate_id_, pub_val_my_);
-  // share_future_.get();
+  if(my_id==0){
+    pub_val_a_.Append(tmp);
+    beavy_provider_.broadcast_bits_message(this->gate_id_, pub_val_a_, 0);
+    pub_val_b_ = share_future_1.get();
 
-  this->outputs_[0]->get_public_share() = ENCRYPTO::BitVector<>::Random(this->input_a_->get_num_simd());
+  }
+  else{
+    
+    pub_val_b_.Append(tmp);
+    beavy_provider_.broadcast_bits_message(this->gate_id_, pub_val_b_, 0);
+    pub_val_a_ = share_future_1.get();
+  }
+  
+  ENCRYPTO::BitVector<> Delta_a;
+  ENCRYPTO::BitVector<> Delta_b;
+  auto num_bits = num_simd*vec_size;
+  Delta_a.Reserve(Helpers::Convert::BitsToBytes(num_bits));
+  Delta_b.Reserve(Helpers::Convert::BitsToBytes(num_bits));
+
+  Delta_a.Append(pub_val_a_);
+  Delta_b.Append(pub_val_b_);
+  
+  Delta_y_share_ ^= (Delta_a & delta_b_share_);
+  Delta_y_share_ ^= (Delta_b & delta_a_share_);
+
+  if (my_id == 0) {
+    Delta_y_share_ ^= (Delta_a & Delta_b);
+  }
+
+  ENCRYPTO::BitVector<> Delta_y_share;
+  Delta_y_share.Reserve(num_simd);
+  Delta_y_share.Append(this->outputs_[0]->get_secret_share());
+
+  for (std::size_t i = 0; i < vec_size; ++i) {
+    Delta_y_share ^= Delta_y_share_.Subset(i * num_simd, (i + 1) * num_simd);
+  }
+
+  beavy_provider_.broadcast_bits_message(this->gate_id_, Delta_y_share, 1);
+  Delta_y_share ^= share_future_2.get();
+  
+  this->outputs_[0]->get_public_share() = Delta_y_share;
   this->outputs_[0]->set_online_ready();
 }
 
