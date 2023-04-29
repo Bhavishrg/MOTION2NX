@@ -1784,7 +1784,9 @@ ArithmeticBEAVYEQEXPGate<T>::ArithmeticBEAVYEQEXPGate(std::size_t gate_id,
       beavy_provider_(beavy_provider) {
   auto my_id = beavy_provider_.get_my_id();
   auto num_simd = this->input_a_->get_num_simd();
-  size_t vec_size = 256;//this->input_b_->get_public_share()[0];
+  size_t vec_size = this->input_b_->get_public_share()[0];
+  assert(vec_size < 10000);
+  assert(vec_size > 0);
   share_future_1 = beavy_provider_.register_for_bits_message(1 - my_id, this->gate_id_, vec_size*num_simd, 0);
   share_future_2 = beavy_provider_.register_for_bits_message(1 - my_id, this->gate_id_, num_simd, 1);
   auto& otp = beavy_provider_.get_ot_manager().get_provider(1 - my_id);
@@ -1805,7 +1807,7 @@ void ArithmeticBEAVYEQEXPGate<T>::evaluate_setup() {
   }
 
   auto num_simd = this->input_a_->get_num_simd();
-  size_t vec_size = 256;//this->input_b_->get_public_share()[0];
+  size_t vec_size = this->input_b_->get_public_share()[0];
 
   auto num_bytes = Helpers::Convert::BitsToBytes(vec_size * num_simd);
   delta_a_share_.Reserve(num_bytes);
@@ -1847,7 +1849,7 @@ template <typename T>
 void ArithmeticBEAVYEQEXPGate<T>::evaluate_online() {
   auto my_id = beavy_provider_.get_my_id();
   auto num_simd = this->input_a_->get_num_simd();
-  size_t vec_size = 256;//this->input_b_->get_public_share()[0];
+  size_t vec_size = this->input_b_->get_public_share()[0];
   
  
   pub_val_b_.Reserve(vec_size*num_simd);

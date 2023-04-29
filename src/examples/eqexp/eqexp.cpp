@@ -206,7 +206,6 @@ auto create_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
     input_promise = std::move(pair.first);
     input_1_arith = std::move(pair.second);
   }
-  std::cout<< "0.1"<< std::endl;
   auto output = gate_factory_arith.make_binary_gate(
     ENCRYPTO::PrimitiveOperationType::EQEXP, input_0_arith, input_1_arith);  
   

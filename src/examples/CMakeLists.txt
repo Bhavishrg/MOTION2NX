@@ -15,6 +15,7 @@ add_subdirectory(multni)
 add_subdirectory(dot)
 add_subdirectory(count)
 add_subdirectory(eqexp)
+add_subdirectory(exact_pm)
 
 if (MOTION_BUILD_ONNX_ADAPTER)
   add_subdirectory(onnx2motion)
