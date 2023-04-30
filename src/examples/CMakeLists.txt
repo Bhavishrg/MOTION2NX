@@ -17,6 +17,7 @@ add_subdirectory(count)
 add_subdirectory(eqexp)
 add_subdirectory(exact_pm)
 add_subdirectory(wildcard_pm)
+add_subdirectory(approximate_pm)
 
 if (MOTION_BUILD_ONNX_ADAPTER)
   add_subdirectory(onnx2motion)
