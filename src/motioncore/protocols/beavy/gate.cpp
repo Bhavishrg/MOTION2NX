@@ -1785,6 +1785,7 @@ ArithmeticBEAVYEQEXPGate<T>::ArithmeticBEAVYEQEXPGate(std::size_t gate_id,
   auto my_id = beavy_provider_.get_my_id();
   auto num_simd = this->input_a_->get_num_simd();
   size_t vec_size = this->input_b_->get_public_share()[0];
+  std::cout<< "vs: " << vec_size << std::endl;
   assert(vec_size < 10000);
   assert(vec_size > 0);
   share_future_1 = beavy_provider_.register_for_bits_message(1 - my_id, this->gate_id_, vec_size*num_simd, 0);

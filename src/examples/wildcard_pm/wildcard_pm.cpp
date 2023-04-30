@@ -127,7 +127,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   
   auto pattern_size = vm["pattern-size"].as<std::uint64_t>();
   options.pattern_size = vm["pattern-size"].as<std::uint64_t>();
-  options.ring_size = vm["pattern-size"].as<std::uint64_t>();
+  options.ring_size = vm["ring-size"].as<std::uint64_t>();
 
   auto text_size = vm["text-size"].as<std::uint64_t>();
   options.text_size = text_size;
@@ -192,10 +192,8 @@ std::vector<uint64_t> convert_to_binary(uint64_t x) {
 auto make_input_wires(const Options& options) {
   BooleanBEAVYWireVector wires;
   auto num_simd = options.text_size - options.pattern_size + 1;
-  auto num_wires = 256;
-  if (options.text_size * 16 < 256){
-    auto num_wires = options.pattern_size * options.ring_size;
-  }
+  auto num_wires = options.pattern_size * options.ring_size;
+
 
   // setting random val?
   for (uint64_t j = 0; j < num_wires; ++j){
@@ -218,14 +216,13 @@ auto make_input_wires(const Options& options) {
 auto make_ring_wire(const Options& options) {
   
   auto num_simd = options.text_size - options.pattern_size + 1;
-  auto num_wires = 256;
-  if (options.text_size * 16 < 256){
-    auto num_wires = options.pattern_size * options.ring_size;
-  }
+  auto num_wires = options.pattern_size * options.ring_size;
 
   auto wire = std::make_shared<ArithmeticBEAVYWire<uint64_t>>(num_simd);
   std::vector<MOTION::NewWireP> in2;
   std::vector<uint64_t> x(num_simd, 2*num_wires);
+  std::cout << x.size() << std::endl;
+  std::cout << x[0] << std::endl;
 
   wire->get_secret_share() = x;
   wire->get_public_share() = x;
@@ -251,8 +248,10 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireV
 
 
   auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, in1);
+  auto output2 = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::MULNI, 
+                                                        output1, output1);
   auto output = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::EQEXP, 
-                                                        output1, in2);
+                                                        output2, in2);
   backend.run();
 
 }
