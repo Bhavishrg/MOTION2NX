@@ -127,7 +127,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   
   auto pattern_size = vm["pattern-size"].as<std::uint64_t>();
   options.pattern_size = vm["pattern-size"].as<std::uint64_t>();
-  options.ring_size = vm["pattern-size"].as<std::uint64_t>();
+  options.ring_size = vm["ring-size"].as<std::uint64_t>();
 
   auto text_size = vm["text-size"].as<std::uint64_t>();
   options.text_size = text_size;
@@ -220,7 +220,7 @@ auto make_ring_wire(const Options& options) {
   auto num_simd = options.text_size - options.pattern_size + 1;
   auto num_wires = 256;
   if (options.text_size * 16 < 256){
-    auto num_wires = options.pattern_size * options.ring_size;
+    num_wires = options.pattern_size * options.ring_size;
   }
 
   auto wire = std::make_shared<ArithmeticBEAVYWire<uint64_t>>(num_simd);

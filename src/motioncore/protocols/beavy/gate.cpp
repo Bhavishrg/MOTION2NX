@@ -1857,6 +1857,7 @@ void ArithmeticBEAVYEQEXPGate<T>::evaluate_online() {
   pub_val_a_.Reserve(vec_size*num_simd);
   auto tmp = ENCRYPTO::BitVector<>(num_simd*vec_size); 
 
+  #pragma omp parallel for
   for(int i=0; i<num_simd; ++i){
     auto pos = this->input_a_->get_public_share()[i] % vec_size;
     tmp.Set(true, (pos)*num_simd + i);
