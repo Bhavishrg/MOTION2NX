@@ -218,8 +218,8 @@ auto make_input_wires(const Options& options) {
 
 auto make_ring_wire1(const Options& options) {
   
-  auto num_simd = (options.text_size - options.pattern_size + 1);
-  auto num_wires = options.pattern_size*options.pattern_size;
+  auto num_simd = (options.text_size - options.pattern_size + 1)*options.pattern_size;
+  auto num_wires = options.pattern_size;
 
   auto wire = std::make_shared<ArithmeticBEAVYWire<uint64_t>>(num_simd);
   std::vector<MOTION::NewWireP> in2;

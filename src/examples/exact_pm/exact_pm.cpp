@@ -194,9 +194,11 @@ auto make_input_wires(const Options& options) {
   auto num_simd = options.text_size - options.pattern_size + 1;
   auto num_wires = 256;
   if (options.pattern_size * options.ring_size < 256){
-    auto num_wires = options.pattern_size * options.ring_size;
+    num_wires = options.pattern_size * options.ring_size;
   }
-
+  std::cout << "num_simd: " << num_simd << std::endl;
+  std::cout << "num_wires: " << num_wires << std::endl;
+  
   // setting random val?
   for (uint64_t j = 0; j < num_wires; ++j){
     auto wire = std::make_shared<BooleanBEAVYWire>(num_simd);
@@ -219,13 +221,17 @@ auto make_ring_wire(const Options& options) {
   
   auto num_simd = options.text_size - options.pattern_size + 1;
   auto num_wires = 256;
-  if (options.text_size * 16 < 256){
+  if (options.pattern_size * options.ring_size < 256){
     num_wires = options.pattern_size * options.ring_size;
   }
+  std::cout << "num_simd: " << num_simd << std::endl;
+  std::cout << "num_wires: " << num_wires << std::endl;
 
   auto wire = std::make_shared<ArithmeticBEAVYWire<uint64_t>>(num_simd);
   std::vector<MOTION::NewWireP> in2;
   std::vector<uint64_t> x(num_simd, 2*num_wires);
+  std::cout << x.size() << std::endl;
+  std::cout << x[0] << std::endl;
 
   wire->get_secret_share() = x;
   wire->get_public_share() = x;
@@ -251,6 +257,8 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireV
 
 
   auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, in1);
+  // auto output2 = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::MULNI, 
+  //                                                       output1, output1);
   auto output = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::EQEXP, 
                                                         output1, in2);
   backend.run();

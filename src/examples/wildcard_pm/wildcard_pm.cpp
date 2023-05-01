@@ -194,6 +194,8 @@ auto make_input_wires(const Options& options) {
   auto num_simd = options.text_size - options.pattern_size + 1;
   auto num_wires = options.pattern_size * options.ring_size;
 
+  std::cout << "num_simd: " << num_simd << std::endl;
+  std::cout << "num_wires: " << num_wires << std::endl;
 
   // setting random val?
   for (uint64_t j = 0; j < num_wires; ++j){
@@ -217,6 +219,9 @@ auto make_ring_wire(const Options& options) {
   
   auto num_simd = options.text_size - options.pattern_size + 1;
   auto num_wires = options.pattern_size * options.ring_size;
+
+  std::cout << "num_simd: " << num_simd << std::endl;
+  std::cout << "num_wires: " << num_wires << std::endl;
 
   auto wire = std::make_shared<ArithmeticBEAVYWire<uint64_t>>(num_simd);
   std::vector<MOTION::NewWireP> in2;
@@ -251,7 +256,7 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireV
   auto output2 = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::MULNI, 
                                                         output1, output1);
   auto output = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::EQEXP, 
-                                                        output2, in2);
+                                                        output1, in2);
   backend.run();
 
 }
