@@ -193,7 +193,7 @@ auto make_input_wires(const Options& options) {
   BooleanBEAVYWireVector wires;
   auto num_simd = options.text_size - options.pattern_size + 1;
   auto num_wires = 256;
-  if (options.text_size * 16 < 256){
+  if (options.pattern_size * options.ring_size < 256){
     auto num_wires = options.pattern_size * options.ring_size;
   }
 
