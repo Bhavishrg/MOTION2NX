@@ -66,7 +66,6 @@ struct Options {
   std::uint64_t pattern_size;
   std::uint64_t text_size;
   std::uint64_t ring_size;
-  std::uint64_t threshold;
   std::size_t my_id;
   MOTION::Communication::tcp_parties_config tcp_config;
   bool no_run = false;
@@ -87,7 +86,6 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
     ("pattern-size", po::value<std::uint64_t>()->required(), "size of pattern")
     ("text-size", po::value<std::uint64_t>()->required(), "size of text")
     ("ring-size", po::value<std::size_t>()->default_value(16), "size of the ring")
-    ("threshold", po::value<std::uint64_t>()->required(), "number of mismatches allowed")
     ("repetitions", po::value<std::size_t>()->default_value(1), "number of repetitions")
     ("num-simd", po::value<std::size_t>()->default_value(1), "number of SIMD values")
     ("sync-between-setup-and-online", po::bool_switch()->default_value(false),
@@ -130,7 +128,6 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   auto pattern_size = vm["pattern-size"].as<std::uint64_t>();
   options.pattern_size = vm["pattern-size"].as<std::uint64_t>();
   options.ring_size = vm["ring-size"].as<std::uint64_t>();
-  options.threshold = vm["threshold"].as<std::uint64_t>();
 
   auto text_size = vm["text-size"].as<std::uint64_t>();
   options.text_size = text_size;
@@ -194,10 +191,12 @@ std::vector<uint64_t> convert_to_binary(uint64_t x) {
 
 auto make_input_wires(const Options& options) {
   BooleanBEAVYWireVector wires;
-  auto num_simd =(options.text_size - options.pattern_size + 1)*options.pattern_size;
+  auto num_simd = (options.text_size - options.pattern_size + 1)*options.pattern_size;
   auto num_wires = options.ring_size;
 
-
+  std::cout << "num_simd: " << num_simd << std::endl;
+  std::cout << "num_wires: " << num_wires << std::endl;
+  
   // setting random val?
   for (uint64_t j = 0; j < num_wires; ++j){
     auto wire = std::make_shared<BooleanBEAVYWire>(num_simd);
@@ -216,10 +215,13 @@ auto make_input_wires(const Options& options) {
   return in1;
 }
 
-auto make_ring_wire1(const Options& options) {
+auto make_ring_wire(const Options& options) {
   
   auto num_simd = (options.text_size - options.pattern_size + 1)*options.pattern_size;
-  auto num_wires = options.pattern_size;
+  auto num_wires = options.ring_size;
+
+  std::cout << "num_simd: " << num_simd << std::endl;
+  std::cout << "num_wires: " << num_wires << std::endl;
 
   auto wire = std::make_shared<ArithmeticBEAVYWire<uint64_t>>(num_simd);
   std::vector<MOTION::NewWireP> in2;
@@ -236,27 +238,7 @@ auto make_ring_wire1(const Options& options) {
   return in2;
 }
 
-auto make_ring_wire2(const Options& options) {
-  
-  auto num_simd = (options.text_size - options.pattern_size + 1)*options.threshold;
-  auto num_wires = options.pattern_size;
-
-  auto wire = std::make_shared<ArithmeticBEAVYWire<uint64_t>>(num_simd);
-  std::vector<MOTION::NewWireP> in3;
-  std::vector<uint64_t> x(num_simd, 2*num_wires);
-  std::cout << x.size() << std::endl;
-  std::cout << x[0] << std::endl;
-
-  wire->get_secret_share() = x;
-  wire->get_public_share() = x;
-  wire->set_setup_ready();
-  wire->set_online_ready();
-
-  in3.push_back(wire);
-  return in3;
-}
-
-void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireVector in1, WireVector in2, WireVector in3) {
+void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireVector in1, WireVector in2) {
 
   if (options.no_run) {
     return;
@@ -268,12 +250,45 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireV
   auto& gate_factory_bool = backend.get_gate_factory(boolean_protocol);
 
 
-  // auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, in1);
-  auto output2 = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::EQEXP, 
-                                                        in2, in2);
-  auto output3 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::COUNT, output2);
+  ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector(1, false);
+  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector(1, false);
+  std::cout<< "mx:" <<mx << " dx: "<<dx<< std::endl;
+  auto x = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(1);
+  
+  auto y = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(1);
+  auto& x_pub = x->get_secret_share();
+  auto& y_pub = y->get_secret_share();
+  x_pub = mx;
+  y_pub = mx;
+  auto& x_sec = x->get_public_share();
+  auto& y_sec = y->get_public_share();
+  x_sec = dx;
+  y_sec = dx;
+  x->set_setup_ready();
+  y->set_setup_ready();
+  x->set_online_ready();
+  y->set_online_ready();
+
+  auto xx = std::dynamic_pointer_cast<MOTION::NewWire>(x);
+  auto yy = std::dynamic_pointer_cast<MOTION::NewWire>(y);
+  // Cast to wire vectors.
+  MOTION::WireVector X, Y;
+  
+  for (uint64_t j = 0; j < 1; ++j) {
+        X.push_back(xx);
+        Y.push_back(yy);
+  }
+
+  
+
+
+  auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, in1);
+  auto output2 = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::MUL, 
+                                                        output1, output1);
   auto output = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::EQEXP, 
-                                                        in3, in3);
+                                                        output1, in2);
+  auto output3 = gate_factory_bool.make_binary_gate(
+    ENCRYPTO::PrimitiveOperationType::MSG, X, Y);
   backend.run();
 
 }
@@ -303,8 +318,7 @@ int main(int argc, char* argv[]) {
   try {
 
     auto in1 = make_input_wires(*options);
-    auto in2 = make_ring_wire1(*options);
-    auto in3 = make_ring_wire2(*options);
+    auto in2 = make_ring_wire(*options);
     auto comm_layer = setup_communication(*options);
     auto logger = std::make_shared<MOTION::Logger>(options->my_id,
                                                    boost::log::trivial::severity_level::trace);
@@ -314,7 +328,7 @@ int main(int argc, char* argv[]) {
     for (std::size_t i = 0; i < options->num_repetitions; ++i) {
       MOTION::TwoPartyBackend backend(*comm_layer, options->threads,
                                       options->sync_between_setup_and_online, logger);
-      run_circuit(*options, backend, in1, in2, in3);
+      run_circuit(*options, backend, in1, in2);
       comm_layer->sync();
       comm_stats.add(comm_layer->get_transport_statistics());
       comm_layer->reset_transport_statistics();

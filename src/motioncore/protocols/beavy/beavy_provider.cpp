@@ -396,6 +396,8 @@ std::pair<NewGateP, WireVector> BEAVYProvider::construct_binary_gate(
       return construct_xor_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::AND:
       return construct_and_gate(in_a, in_b);
+    case ENCRYPTO::PrimitiveOperationType::MSG:
+      return construct_msg_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::DOT:
       return construct_dot_gate(in_a, in_b);
     default:
@@ -412,6 +414,8 @@ std::vector<std::shared_ptr<NewWire>> BEAVYProvider::make_binary_gate(
       return make_xor_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::AND:
       return make_and_gate(in_a, in_b);
+    case ENCRYPTO::PrimitiveOperationType::MSG:
+      return make_msg_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::DOT:
       return make_dot_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::ADD:
@@ -512,6 +516,20 @@ std::pair<NewGateP, WireVector> BEAVYProvider::construct_and_gate(const WireVect
   }
 }
 
+std::pair<NewGateP, WireVector> BEAVYProvider::construct_msg_gate(const WireVector& in_a,
+                                                                  const WireVector& in_b) {
+  // assume, at most one of the inputs is a plain wire
+  if (in_a.at(0)->get_protocol() == MPCProtocol::BooleanPlain) {
+    return construct_xor_gate(in_b, in_a);
+  }
+  assert(in_a.at(0)->get_protocol() == MPCProtocol::BooleanBEAVY);
+  if (in_b.at(0)->get_protocol() == MPCProtocol::BooleanPlain) {
+    return construct_boolean_binary_gate<BooleanBEAVYANDPlainGate, true>(in_a, in_b);
+  } else {
+    return construct_boolean_binary_gate<BooleanBEAVYMSGGate>(in_a, in_b);
+  }
+}
+
 std::pair<NewGateP, WireVector> BEAVYProvider::construct_dot_gate(const WireVector& in_a,
                                                                   const WireVector& in_b) {
   // assume, at most one of the inputs is a plain wire
@@ -549,6 +567,19 @@ WireVector BEAVYProvider::make_and_gate(const WireVector& in_a, const WireVector
     return make_boolean_binary_gate<BooleanBEAVYANDPlainGate, true>(in_a, in_b);
   } else {
     return make_boolean_binary_gate<BooleanBEAVYANDGate>(in_a, in_b);
+  }
+}
+
+WireVector BEAVYProvider::make_msg_gate(const WireVector& in_a, const WireVector& in_b) {
+  // assume, at most one of the inputs is a plain wire
+  if (in_a.at(0)->get_protocol() == MPCProtocol::BooleanPlain) {
+    return make_xor_gate(in_b, in_a);
+  }
+  assert(in_a.at(0)->get_protocol() == MPCProtocol::BooleanBEAVY);
+  if (in_b.at(0)->get_protocol() == MPCProtocol::BooleanPlain) {
+    return make_boolean_binary_gate<BooleanBEAVYANDPlainGate, true>(in_a, in_b);
+  } else {
+    return make_boolean_binary_gate<BooleanBEAVYMSGGate>(in_a, in_b);
   }
 }
 

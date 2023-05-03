@@ -218,7 +218,7 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
   auto& gate_factory_arith = backend.get_gate_factory(options.boolean_protocol);
 
     auto output = gate_factory_arith.make_binary_gate(
-    ENCRYPTO::PrimitiveOperationType::DOT, X, Y);
+    ENCRYPTO::PrimitiveOperationType::MSG, X, Y);
 
   // execute the protocol
   backend.run();
@@ -227,7 +227,7 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
   // cast output wire vector to boolean beavy wire vector.
    std::cout << "\n\n pub ";
 
-  for (uint64_t j = 0; j < 3; ++j) {
+  for (uint64_t j = 0; j < 1; ++j) {
         auto output_beavy = std::dynamic_pointer_cast<MOTION::proto::beavy::BooleanBEAVYWire>(output[j]);
             std::cout << output_beavy->get_public_share().AsString() << " ";
 
@@ -235,7 +235,7 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
 
   std::cout << "\n sec ";
 
-  for (uint64_t j = 0; j < 3; ++j) {
+  for (uint64_t j = 0; j < 1; ++j) {
       auto output_beavy = std::dynamic_pointer_cast<MOTION::proto::beavy::BooleanBEAVYWire>(output[j]);
           std::cout << output_beavy->get_secret_share().AsString() << " ";
 
