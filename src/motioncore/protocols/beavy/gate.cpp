@@ -28,6 +28,8 @@
 
 #include "base/gate_factory.h"
 #include "beavy_provider.h"
+#include "executor/execution_context.h"
+#include "utility/fiber_thread_pool/fiber_thread_pool.hpp"
 #include "crypto/arithmetic_provider.h"
 #include "crypto/motion_base_provider.h"
 #include "crypto/oblivious_transfer/ot_flavors.h"
@@ -574,14 +576,18 @@ void BooleanBEAVYHAMGate<T>::evaluate_setup_with_context(ExecutionContext& conte
   }
 
   // Run the Bit2A protocol!
-  // TODO(pranav): Change this to parallel running.
   for (int i = 0; i < this->num_wires_; i++) {
-    bit2a_gates_[i]->evaluate_setup();
+    context.fpool_->post([&] { bit2a_gates_[i]->evaluate_setup(); });
+    // bit2a_gates_[i]->evaluate_setup();
   }
 
   for (int i = 0; i < this->num_wires_; i++) {
-    beavy_arithmetic_wires_[i][0]->wait_setup();
-    bit2a_gates_[i]->evaluate_online();
+    beavy_arithmetic_wires_[i][0]->wait_setup(); 
+    context.fpool_->post([&] { 
+      bit2a_gates_[i]->evaluate_online();
+     });
+    // beavy_arithmetic_wires_[i][0]->wait_setup();
+    // bit2a_gates_[i]->evaluate_online();
   }
 
 
