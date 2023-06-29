@@ -218,7 +218,7 @@ auto make_input_wires(const Options& options) {
 auto make_ring_wire(const Options& options) {
   
   auto num_simd = options.text_size - options.pattern_size + 1;
-  auto num_wires = 2*options.pattern_size * options.ring_size;
+  auto num_wires = 512;
 
   std::cout << "num_simd: " << num_simd << std::endl;
   std::cout << "num_wires: " << num_wires << std::endl;
@@ -271,7 +271,7 @@ void print_stats(const Options& options,
     obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
     std::cout << obj << "\n";
   } else {
-    std::cout << MOTION::Statistics::print_stats("Wildcard Pattern Matching", run_time_stats,
+    std::cout << MOTION::Statistics::print_stats("Exact Pattern Matching", run_time_stats,
                                                  comm_stats);
   }
 }

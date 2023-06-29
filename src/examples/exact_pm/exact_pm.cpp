@@ -167,6 +167,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   return options;
 }
 
+
 static std::vector<std::shared_ptr<NewWire>> cast_wires(BooleanBEAVYWireVector& wires) {
   return std::vector<std::shared_ptr<NewWire>>(std::begin(wires), std::end(wires));
 }
@@ -178,6 +179,7 @@ std::unique_ptr<MOTION::Communication::CommunicationLayer> setup_communication(
   return std::make_unique<MOTION::Communication::CommunicationLayer>(options.my_id,
                                                                      helper.setup_connections());
 }
+
 
 std::vector<uint64_t> convert_to_binary(uint64_t x) {
     std::vector<uint64_t> res;
@@ -192,10 +194,10 @@ std::vector<uint64_t> convert_to_binary(uint64_t x) {
 auto make_input_wires(const Options& options) {
   BooleanBEAVYWireVector wires;
   auto num_simd = options.text_size - options.pattern_size + 1;
-  auto num_wires = 256;
-  if (options.pattern_size * options.ring_size < 256){
-    num_wires = options.pattern_size * options.ring_size;
-  }
+  auto num_wires = options.pattern_size*options.ring_size;
+//   if (options.pattern_size * options.ring_size < 256){
+//     num_wires = options.pattern_size * options.ring_size;
+//   }
   std::cout << "num_simd: " << num_simd << std::endl;
   std::cout << "num_wires: " << num_wires << std::endl;
   
@@ -217,13 +219,13 @@ auto make_input_wires(const Options& options) {
   return in1;
 }
 
-auto make_ring_wire(const Options& options) {
+auto make_eqexp_wire(const Options& options) {
   
   auto num_simd = options.text_size - options.pattern_size + 1;
-  auto num_wires = 256;
-  if (options.pattern_size * options.ring_size < 256){
-    num_wires = options.pattern_size * options.ring_size;
-  }
+  auto num_wires = options.pattern_size*options.ring_size;
+//   if (options.pattern_size * options.ring_size < 256){
+//     num_wires = options.pattern_size * options.ring_size;
+//   }
   std::cout << "num_simd: " << num_simd << std::endl;
   std::cout << "num_wires: " << num_wires << std::endl;
 
@@ -290,7 +292,7 @@ int main(int argc, char* argv[]) {
   try {
 
     auto in1 = make_input_wires(*options);
-    auto in2 = make_ring_wire(*options);
+    auto in2 = make_eqexp_wire(*options);
     auto comm_layer = setup_communication(*options);
     auto logger = std::make_shared<MOTION::Logger>(options->my_id,
                                                    boost::log::trivial::severity_level::trace);

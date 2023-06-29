@@ -189,14 +189,14 @@ std::vector<uint64_t> convert_to_binary(uint64_t x) {
     return res;
 }
 
+// Make dummy inputs
 auto make_input_wires(const Options& options) {
   BooleanBEAVYWireVector wires;
   auto num_simd = options.text_size - options.pattern_size + 1;
-  auto num_wires = options.pattern_size * options.ring_size;
-
+  auto num_wires = 256; // Hash size
   std::cout << "num_simd: " << num_simd << std::endl;
   std::cout << "num_wires: " << num_wires << std::endl;
-
+  
   // setting random val?
   for (uint64_t j = 0; j < num_wires; ++j){
     auto wire = std::make_shared<BooleanBEAVYWire>(num_simd);
@@ -215,11 +215,10 @@ auto make_input_wires(const Options& options) {
   return in1;
 }
 
-auto make_ring_wire(const Options& options) {
+auto make_eqexp_wire(const Options& options) {
   
   auto num_simd = options.text_size - options.pattern_size + 1;
-  auto num_wires = 2*options.pattern_size * options.ring_size;
-
+  auto num_wires = 512; // 2*hash size
   std::cout << "num_simd: " << num_simd << std::endl;
   std::cout << "num_wires: " << num_wires << std::endl;
 
@@ -238,6 +237,7 @@ auto make_ring_wire(const Options& options) {
   return in2;
 }
 
+// build circuit
 void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireVector in1, WireVector in2) {
 
   if (options.no_run) {
@@ -253,8 +253,8 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireV
 
 
   auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, in1);
-  auto output2 = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::MULNI, 
-                                                        output1, output1);
+  // auto output2 = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::MULNI, 
+  //                                                       output1, output1);
   auto output = gate_factory_arith.make_binary_gate(ENCRYPTO::PrimitiveOperationType::EQEXP, 
                                                         output1, in2);
   backend.run();
@@ -271,7 +271,7 @@ void print_stats(const Options& options,
     obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
     std::cout << obj << "\n";
   } else {
-    std::cout << MOTION::Statistics::print_stats("Wildcard Pattern Matching", run_time_stats,
+    std::cout << MOTION::Statistics::print_stats("Exact Pattern Matching", run_time_stats,
                                                  comm_stats);
   }
 }
@@ -286,7 +286,7 @@ int main(int argc, char* argv[]) {
   try {
 
     auto in1 = make_input_wires(*options);
-    auto in2 = make_ring_wire(*options);
+    auto in2 = make_eqexp_wire(*options);
     auto comm_layer = setup_communication(*options);
     auto logger = std::make_shared<MOTION::Logger>(options->my_id,
                                                    boost::log::trivial::severity_level::trace);
