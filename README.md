@@ -1,42 +1,14 @@
-# MOTION2NX -- A Framework for Generic Hybrid Two-Party Computation and Private Inference with Neural Networks
+# ExPat -- Express and Secure Pattern Matching
 
-This software is an extension of the [MOTION framework for multi-party
-computation](https://github.com/encryptogroup/MOTION).
-We additionally implemented five 2PC protocols with passive security together
-with all 20 possible conversions among each other to enable private evaluation
-of hybrid circuits:
+This software is the preliminary implementation of the paper "ExPat: Express and Secure Pattern Matching" which builds on the MOTION2NX framework available at https://github.com/encryptogroup/MOTION2NX.
 
-- Yao's Garbled Circuits with FreeXOR and Half-Gates
-- Arithmetic and Boolean variants of Goldreich-Micali-Wigderson
-- Arithmetic and Boolean variants of the secret-sharing-based protocols from [ABY2.0 (Patra et al., USENIX Security '21)](https://eprint.iacr.org/2020/1225)
+# WARNING: This is not production-ready code.
 
-Moreover, we support private inference with neural networks by providing secure
-tensor data types and specialized building blocks for common tensor operations.
-With support of the [Open Neural Network Exchange (ONNX)](https://onnx.ai) file
-format, this makes our framework interoperable with industry-standard deep
-learning frameworks such as TensorFlow and PyTorch.
-
-Compared to the original MOTION codebase, we made architectural improvements
-to increase flexibility and performance of the framework.
-Although the interfaces of this work are currently not compatible with the
-original framework due to the concurrent development of both branches, it is
-planned to integrate the MOTION2NX features into MOTION itself.
+This is software for a research prototype. Please
+do *NOT* use this code in production.
 
 
-More information about this work is given in [this extended
-abstract](https://encrypto.de/papers/BCS21PriMLNeurIPS.pdf) which was accepted
-at the [PriML@NeurIPS 2021](https://priml2021.github.io/) workshop.
-It is the result of Lennart Braun's master's thesis in the [ENCRYPTO
-group](https://encrypto.de) at [TU
-Darmstadt](https://www.informatik.tu-darmstadt.de) supervised by Thomas
-Schneider and Rosario Cammarota.
-
-This code is provided as a experimental implementation for testing purposes and
-should not be used in a productive environment. We cannot guarantee security
-and correctness.
-
-
-## Build Instructions
+# Build Instructions
 
 
 This software was developed and tested in the following environment (it might
@@ -102,31 +74,56 @@ needs additionally be passed to CMake:
 This builds the library target `motion_onnx` and the `onnx2motion` executable.
 
 
+# Testing the code
 
-### Examples
+## Commands to check the working of equality.
 
+Build project using 
+```
+$ CC=gcc CXX=g++ cmake \
+    -B build_debwithrelinfo_gcc \
+    -DCMAKE_BUILD_TYPE=DebWithRelInfo \
+    -DMOTION_BUILD_EXE=On \
+    -DMOTION_BUILD_TESTS=On \
+    -DMOTION_USE_AVX=AVX2
+$ cmake --build build_debwithrelinfo_gcc
+```
 
-#### Using the MOTION2NX Low-Level API
+Then run :
+```
+./build_debwithrelinfo_gcc/bin/equality --my-id 0 \
+ --party 0,<PARTY_0_IP_ADDRESS> \
+ --party 1,<PARTY_1_IP_ADDRESS> \
+ --repetitions 1  --ring-size 16
 
-See [here](src/examples/millionaires_problem) for an example solution of Yao's
-Millionaires' Problem.
-
-
-#### Using the `onnx2motion` Application
+ ./build_debwithrelinfo_gcc/bin/equality --my-id 1 \
+ --party 0,<PARTY_0_IP_ADDRESS> \
+ --party 1,<PARTY_1_IP_ADDRESS> \
+ --repetitions 1  --ring-size 16
 
 ```
-$ ./bin/onnx2motion \
-    --my-id ${PARTY_ID} \
-    --party 0,::1,7000 \
-    --party 1,::1,7001 \
-    --arithmetic-protocol GMW \
-    --boolean-protocol GMW \
-    --model /path/to/model.onnx \
-    --json
+
+
+The `ring-size` option is configurable, and `my-id` option and IP addresses change accordingly.
+
+
+## Commands to check the working of pattern matching protocols.
+
+Build project and run
+
 ```
-with "${PARTY_ID}" either 0 or 1.
+./build_debwithrelinfo_gcc/bin/exact_pmo --my-id 0 \
+ --party 0,<PARTY_0_IP_ADDRESS> \
+ --party 1,<PARTY_1_IP_ADDRESS> \
+ --repetitions 1 --pattern-size 10 --text-size 100 --ring-size 16
 
+ ./build_debwithrelinfo_gcc/bin/exact_pmo --my-id 1 \
+ --party 0,<PARTY_0_IP_ADDRESS> \
+ --party 1,<PARTY_1_IP_ADDRESS> \
+ --repetitions 1 --pattern-size 10 --text-size 100 --ring-size 16
 
+```
+The `ring-size`, `text-size`, `pattern-size` and option is configurable, and `my-id` option and IP addresses change accordingly.
 
-
+Similarly use, `./build_debwithrelinfo_gcc/bin/exact_pm` and `./build_debwithrelinfo_gcc/bin/exact_npm` to run exact patern matching without optimisation and the naive exact pattern matching protocol. Use `./build_debwithrelinfo_gcc/bin/wildcard_pmo`, `./build_debwithrelinfo_gcc/bin/wildcard_pm`, and `./build_debwithrelinfo_gcc/bin/wildcard_npm` for wildcard pattern matching.   
 

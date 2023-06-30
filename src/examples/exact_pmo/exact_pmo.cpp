@@ -218,7 +218,7 @@ auto make_input_wires(const Options& options) {
 auto make_eqexp_wire(const Options& options) {
   
   auto num_simd = options.text_size - options.pattern_size + 1;
-  auto num_wires = 512; // 2*hash size
+  auto num_wires = 256;
   std::cout << "num_simd: " << num_simd << std::endl;
   std::cout << "num_wires: " << num_wires << std::endl;
 

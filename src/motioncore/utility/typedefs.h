@@ -36,6 +36,7 @@ enum class PrimitiveOperationType : std::uint8_t {
   OUT,
   XOR,  // for Boolean circuit only
   AND,  // for Boolean circuit only
+  AND4,  // for Boolean circuit only
   MSG,  // for Boolean circuit only
   DOT,  // for Boolean circuit only
   MUX,  // for Boolean circuit only

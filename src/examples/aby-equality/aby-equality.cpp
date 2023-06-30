@@ -48,10 +48,12 @@
 #include "utility/bit_vector.h"
 #include "protocols/beavy/beavy_provider.cpp"
 #include "wire/new_wire.h"
+#include "utility/helpers.h"
 
 namespace po = boost::program_options;
 using namespace MOTION::proto::beavy;
 using NewWire = MOTION::NewWire;
+using WireVector = std::vector<std::shared_ptr<NewWire>>;
 
 struct Options {
   std::size_t threads;
@@ -61,7 +63,7 @@ struct Options {
   bool sync_between_setup_and_online;
   MOTION::MPCProtocol arithmetic_protocol;
   MOTION::MPCProtocol boolean_protocol;
-  std::uint64_t input_value;
+  std::uint64_t ring_size;
   std::size_t my_id;
   MOTION::Communication::tcp_parties_config tcp_config;
   bool no_run = false;
@@ -79,9 +81,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
      "(party id, IP, port), e.g., --party 1,127.0.0.1,7777")
     ("threads", po::value<std::size_t>()->default_value(0), "number of threads to use for gate evaluation")
     ("json", po::bool_switch()->default_value(false), "output data in JSON format")
-    ("arithmetic-protocol", po::value<std::string>()->required(), "2PC protocol (GMW or BEAVY)")
-    ("boolean-protocol", po::value<std::string>()->required(), "2PC protocol (Yao, GMW or BEAVY)")
-    ("input-value", po::value<std::uint64_t>()->required(), "input value for Yao's Millionaires' Problem")
+    ("ring-size", po::value<std::size_t>()->default_value(16), "size of the ring")
     ("repetitions", po::value<std::size_t>()->default_value(1), "number of repetitions")
     ("num-simd", po::value<std::size_t>()->default_value(1), "number of SIMD values")
     ("sync-between-setup-and-online", po::bool_switch()->default_value(false),
@@ -117,12 +117,12 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   options.sync_between_setup_and_online = vm["sync-between-setup-and-online"].as<bool>();
   options.no_run = vm["no-run"].as<bool>();
 
-  auto arithmetic_protocol = vm["arithmetic-protocol"].as<std::string>();
   options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticBEAVY;
-  auto boolean_protocol = vm["boolean-protocol"].as<std::string>();
   options.boolean_protocol = MOTION::MPCProtocol::BooleanBEAVY;
+  
 
-  options.input_value = vm["input-value"].as<std::uint64_t>();
+  options.ring_size = vm["ring-size"].as<std::uint64_t>();
+
 
   const auto parse_party_argument =
       [](const auto& s) -> std::pair<std::size_t, MOTION::Communication::tcp_connection_config> {
@@ -158,9 +158,11 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   return options;
 }
 
+
 static std::vector<std::shared_ptr<NewWire>> cast_wires(BooleanBEAVYWireVector& wires) {
   return std::vector<std::shared_ptr<NewWire>>(std::begin(wires), std::end(wires));
 }
+
 
 std::unique_ptr<MOTION::Communication::CommunicationLayer> setup_communication(
     const Options& options) {
@@ -168,6 +170,7 @@ std::unique_ptr<MOTION::Communication::CommunicationLayer> setup_communication(
   return std::make_unique<MOTION::Communication::CommunicationLayer>(options.my_id,
                                                                      helper.setup_connections());
 }
+
 
 std::vector<uint64_t> convert_to_binary(uint64_t x) {
     std::vector<uint64_t> res;
@@ -179,84 +182,162 @@ std::vector<uint64_t> convert_to_binary(uint64_t x) {
     return res;
 }
 
-auto make_boolean_share() {
+auto make_input_wires(const Options& options) {
   BooleanBEAVYWireVector wires;
-
-  auto wire = std::make_shared<BooleanBEAVYWire>(1);
+  auto num_simd = 1;
+  auto num_wires = options.ring_size;
+  std::cout << "num_simd: " << num_simd << std::endl;
+  std::cout << "num_wires: " << num_wires << std::endl;
+  
   // setting random val?
-  ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector<>::Random(1);
-  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(1);
-  wire->get_secret_share() = mx;
-  wire->get_public_share() = dx;
-
-  std::cout << "mx: " << mx << " dx: " << dx << std::endl;
-  for (uint64_t j = 0; j < 1; ++j){
+  for (uint64_t j = 0; j < num_wires; ++j){
+    auto wire = std::make_shared<BooleanBEAVYWire>(num_simd);
+    ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector<>::Random(num_simd);
+    ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(num_simd);
+    wire->get_secret_share() = mx;
+    wire->get_public_share() = dx;
     wires.push_back(std::move(wire));
   }
-  
-
-  
-
-  for (uint64_t j = 0; j < 1; ++j) {
+  for (uint64_t j = 0; j < num_wires; ++j) {
       wires[j]->set_setup_ready();
       wires[j]->set_online_ready();
   }
-  return wires;
+
+  auto in1 = cast_wires(wires);
+  return in1;
 }
 
-void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
-  //auto [input_promise, output_future] = create_circuit(options, backend);
+  auto make_eqexp_wire(const Options& options) {
+    
+    auto num_simd = 1;
+    auto num_wires = options.ring_size;
 
-  ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector<>::Random(1);
-  std::cout<< mx << std::endl;
-  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(1);
+    std::cout << "num_simd: " << num_simd << std::endl;
+    std::cout << "num_wires: " << num_wires << std::endl;
 
-  auto x = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(1);
-  auto y = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(1);
-  auto& x_pub = x->get_secret_share();
-  auto& y_pub = y->get_secret_share();
-  x_pub = mx;
-  y_pub = mx;
-  auto& x_sec = x->get_public_share();
-  auto& y_sec = y->get_public_share();
-  x_sec = dx;
-  y_sec = dx;
-  x->set_setup_ready();
-  y->set_setup_ready();
-  x->set_online_ready();
-  y->set_online_ready();
+    auto wire = std::make_shared<ArithmeticBEAVYWire<uint64_t>>(num_simd);
+    std::vector<MOTION::NewWireP> in2;
+    std::vector<uint64_t> x(num_simd, 2*num_wires);
+    std::cout << x.size() << std::endl;
+    std::cout << x[0] << std::endl;
 
-  auto xx = std::dynamic_pointer_cast<MOTION::NewWire>(x);
-  auto yy = std::dynamic_pointer_cast<MOTION::NewWire>(y);
-  // Cast to wire vectors.
-  MOTION::WireVector X, Y;
-  
-  for (uint64_t j = 0; j < 100; ++j) {
-        X.push_back(xx);
-        Y.push_back(yy);
+    wire->get_secret_share() = x;
+    wire->get_public_share() = x;
+    wire->set_setup_ready();
+    wire->set_online_ready();
+
+    in2.push_back(wire);
+    return in2;
   }
-  
-  
-  
-  auto& gate_factory_arith = backend.get_gate_factory(options.boolean_protocol);
 
-    auto output = gate_factory_arith.make_binary_gate(
-    ENCRYPTO::PrimitiveOperationType::AND, X, Y);
+  auto make_boolean_wires(int num_wires){
+    ENCRYPTO::BitVector<> mx = ENCRYPTO::BitVector<>::Random(1);
+    std::cout<< mx << std::endl;
+    ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(1);
 
-  // execute the protocol
+    auto x = std::make_shared<MOTION::proto::beavy::BooleanBEAVYWire>(1);
+    auto& x_pub = x->get_secret_share();
+    x_pub = mx;
+    auto& x_sec = x->get_public_share();
+    x_sec = dx;
+    x->set_setup_ready();
+    x->set_online_ready();
+
+    auto xx = std::dynamic_pointer_cast<MOTION::NewWire>(x);
+    // Cast to wire vectors.
+    MOTION::WireVector X;
+    
+    for (uint64_t j = 0; j < num_wires; ++j) {
+        X.push_back(xx);
+  }
+    return X;
+  }
+
+void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend,  WireVector in1, WireVector in2, WireVector in3, WireVector in4) {
+
+  if (options.no_run) {
+    return;
+  }
+
+  MOTION::MPCProtocol arithmetic_protocol = options.arithmetic_protocol;
+  MOTION::MPCProtocol boolean_protocol = options.boolean_protocol;
+  auto& gate_factory_arith = backend.get_gate_factory(arithmetic_protocol);
+  auto& gate_factory_bool = backend.get_gate_factory(boolean_protocol);
+
+  if(options.ring_size == 16){
+    
+      // ENCRYPTO::ReusableFiberPromise<MOTION::IntegerValues<uint16_t>> input_promise;
+      // MOTION::WireVector input_0_arith, input_1_arith;
+      // if (options.my_id == 0) {
+      //   auto pair = gate_factory_arith.make_arithmetic_16_input_gate_my(options.my_id, 1);
+      //   input_promise = std::move(pair.first);
+      //   input_0_arith = std::move(pair.second);
+      //   input_1_arith = gate_factory_arith.make_arithmetic_16_input_gate_other(1 - options.my_id, 1);
+      // } else {
+      //   input_0_arith = gate_factory_arith.make_arithmetic_16_input_gate_other(1 - options.my_id, 1);
+      //   auto pair = gate_factory_arith.make_arithmetic_16_input_gate_my(options.my_id, 1);
+      //   input_promise = std::move(pair.first);
+      //   input_1_arith = std::move(pair.second);
+      // }
+
+      // input_promise.set_value({1});
+      
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in3, in3);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in4, in4);
+
+  }
+
+  if(options.ring_size == 64){
+    
+      // ENCRYPTO::ReusableFiberPromise<MOTION::IntegerValues<uint64_t>> input_promise;
+      // MOTION::WireVector input_0_arith, input_1_arith;
+      // if (options.my_id == 0) {
+      //   auto pair = gate_factory_arith.make_arithmetic_16_input_gate_my(options.my_id, 1);
+      //   input_promise = std::move(pair.first);
+      //   input_0_arith = std::move(pair.second);
+      //   input_1_arith = gate_factory_arith.make_arithmetic_16_input_gate_other(1 - options.my_id, 1);
+      // } else {
+      //   input_0_arith = gate_factory_arith.make_arithmetic_16_input_gate_other(1 - options.my_id, 1);
+      //   auto pair = gate_factory_arith.make_arithmetic_16_input_gate_my(options.my_id, 1);
+      //   input_promise = std::move(pair.first);
+      //   input_1_arith = std::move(pair.second);
+      // }
+
+      // input_promise.set_value({1});
+      
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in2, in2);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in3, in3);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in4, in4);
+
+  }
+
+  if(options.ring_size == 256){
+    
+      // ENCRYPTO::ReusableFiberPromise<MOTION::IntegerValues<uint64_t>> input_promise;
+      // MOTION::WireVector input_0_arith, input_1_arith;
+      // if (options.my_id == 0) {
+      //   auto pair = gate_factory_arith.make_arithmetic_16_input_gate_my(options.my_id, 1);
+      //   input_promise = std::move(pair.first);
+      //   input_0_arith = std::move(pair.second);
+      //   input_1_arith = gate_factory_arith.make_arithmetic_16_input_gate_other(1 - options.my_id, 1);
+      // } else {
+      //   input_0_arith = gate_factory_arith.make_arithmetic_16_input_gate_other(1 - options.my_id, 1);
+      //   auto pair = gate_factory_arith.make_arithmetic_16_input_gate_my(options.my_id, 1);
+      //   input_promise = std::move(pair.first);
+      //   input_1_arith = std::move(pair.second);
+      // }
+
+      // input_promise.set_value({1});
+      
+      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in1, in1);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in2, in2);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in3, in3);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in4, in4);
+
+  }
+
   backend.run();
-  output[0]->wait_online();
-//   assert(output.size() == 1);
-  // cast output wire vector to boolean beavy wire vector.
-  
-  for (uint64_t j = 0; j < 1; ++j) {
-        auto output_beavy = std::dynamic_pointer_cast<MOTION::proto::beavy::BooleanBEAVYWire>(output[j]);
-        std::cout << "The AND = \n\n";
-            std::cout << output_beavy->get_public_share().AsString() << "\n";
-            std::cout << output_beavy->get_secret_share().AsString() << "\n";
 
-    }
-  
 }
 
 void print_stats(const Options& options,
@@ -265,26 +346,30 @@ void print_stats(const Options& options,
   if (options.json) {
     auto obj = MOTION::Statistics::to_json("millionaires_problem", run_time_stats, comm_stats);
     obj.emplace("party_id", options.my_id);
-    obj.emplace("arithmetic_protocol", MOTION::ToString(options.arithmetic_protocol));
-    obj.emplace("boolean_protocol", MOTION::ToString(options.boolean_protocol));
-    obj.emplace("simd", options.num_simd);
     obj.emplace("threads", options.threads);
     obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
     std::cout << obj << "\n";
   } else {
-    std::cout << MOTION::Statistics::print_stats("millionaires_problem", run_time_stats,
+    std::cout << MOTION::Statistics::print_stats("Equality", run_time_stats,
                                                  comm_stats);
   }
 }
 
 int main(int argc, char* argv[]) {
   auto options = parse_program_options(argc, argv);
+  
   if (!options.has_value()) {
     return EXIT_FAILURE;
   }
   
   try {
+
+    MOTION::WireVector in1 = make_boolean_wires(256);
+    MOTION::WireVector in2 = make_boolean_wires(64);
+    MOTION::WireVector in3 = make_boolean_wires(16);
+    MOTION::WireVector in4 = make_boolean_wires(4);
     auto comm_layer = setup_communication(*options);
+    comm_layer->reset_transport_statistics();
     auto logger = std::make_shared<MOTION::Logger>(options->my_id,
                                                    boost::log::trivial::severity_level::trace);
     comm_layer->set_logger(logger);
@@ -293,7 +378,7 @@ int main(int argc, char* argv[]) {
     for (std::size_t i = 0; i < options->num_repetitions; ++i) {
       MOTION::TwoPartyBackend backend(*comm_layer, options->threads,
                                       options->sync_between_setup_and_online, logger);
-      run_circuit(*options, backend);
+      run_circuit(*options, backend, in1, in2, in3, in4);
       comm_layer->sync();
       comm_stats.add(comm_layer->get_transport_statistics());
       comm_layer->reset_transport_statistics();

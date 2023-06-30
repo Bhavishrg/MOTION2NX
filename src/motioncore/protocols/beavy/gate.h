@@ -282,6 +282,27 @@ class BooleanBEAVYANDGate : public detail::BasicBooleanBEAVYBinaryGate {
   std::unique_ptr<ENCRYPTO::ObliviousTransfer::XCOTBitReceiver> ot_receiver_;
 };
 
+class BooleanBEAVYAND4Gate : public detail::BasicBooleanBEAVYBinaryGate {
+ public:
+  BooleanBEAVYAND4Gate(std::size_t gate_id, BEAVYProvider&, BooleanBEAVYWireVector&&,
+                      BooleanBEAVYWireVector&&);
+  ~BooleanBEAVYAND4Gate();
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+
+ private:
+  BEAVYProvider& beavy_provider_;
+  ENCRYPTO::ReusableFiberFuture<ENCRYPTO::BitVector<>> share_future_;
+  ENCRYPTO::BitVector<> delta_a_share_;
+  ENCRYPTO::BitVector<> delta_b_share_;
+  ENCRYPTO::BitVector<> Delta_y_share_;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::XCOTBitSender> ot_sender_;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::XCOTBitReceiver> ot_receiver_;
+};
+
+
 class BooleanBEAVYMSGGate : public detail::BasicBooleanBEAVYBinaryGate {
  public:
   BooleanBEAVYMSGGate(std::size_t gate_id, BEAVYProvider&, BooleanBEAVYWireVector&&,

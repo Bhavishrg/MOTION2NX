@@ -1,4 +1,4 @@
-add_executable(wildcard_pm wildcard_pmo.cpp)
+add_executable(wildcard_pmo wildcard_pmo.cpp)
 
 find_package(Boost COMPONENTS json log program_options REQUIRED)
 
