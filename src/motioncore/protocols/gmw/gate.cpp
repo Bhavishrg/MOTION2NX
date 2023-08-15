@@ -908,4 +908,38 @@ template class BooleanXArithmeticGMWMULGate<std::uint16_t>;
 template class BooleanXArithmeticGMWMULGate<std::uint32_t>;
 template class BooleanXArithmeticGMWMULGate<std::uint64_t>;
 
+template <typename T>
+ArithmeticGMWHAMGate<T>::ArithmeticGMWHAMGate(std::size_t gate_id, GMWProvider& gmw_provider,
+                                              ArithmeticGMWWireP<T>&& in_a)
+    : detail::BasicArithmeticGMWUnaryGate<T>(gate_id, gmw_provider, std::move(in_a)),
+      gmw_provider_(gmw_provider),
+      mt_offset_(
+          gmw_provider.get_mt_provider().RequestArithmeticMTs<T>(this->input_a_->get_num_simd())), // Not sure if we will even need this.
+      share_futures_(gmw_provider_.register_for_ints_messages<T>(
+          this->gate_id_, 2 * this->input_a_->get_num_simd())) {}
+
+template <typename T>
+void ArithmeticGMWMULGate<T>::evaluate_setup() {
+    auto num_simd = this->input_a_->get_num_simd();
+    this->input_a_->wait_setup();
+
+    this->output_->set_setup_ready();
+}
+
+template <typename T>
+void ArithmeticGMWMULGate<T>::evaluate_online() {
+  auto num_simd = this->input_a_->get_num_simd();
+  const auto& mtp = gmw_provider_.get_mt_provider();
+  const auto& all_mts = mtp.GetIntegerAll<T>();
+  this->input_a_->wait_online();
+  this->input_b_->wait_online();
+  this->output_->get_share() = std::move(result);
+  this->output_->set_online_ready();
+}
+
+template class ArithmeticGMWHAMGate<std::uint8_t>;
+template class ArithmeticGMWHAMGate<std::uint16_t>;
+template class ArithmeticGMWHAMGate<std::uint32_t>;
+template class ArithmeticGMWHAMGate<std::uint64_t>;
+
 }  // namespace MOTION::proto::gmw
