@@ -355,4 +355,17 @@ class BooleanXArithmeticGMWMULGate : public detail::BasicBooleanXArithmeticGMWBi
   std::unique_ptr<MOTION::BitIntegerMultiplicationIntSide<T>> mult_int_side_;
 };
 
+template <typename T>
+class ArithmeticGMWHAMGate : public detail::BasicArithmeticGMWUnaryGate<T> {
+ public:
+  ArithmeticGMWHAMGate(std::size_t gate_id, GMWProvider&, ArithmeticGMWWireP<T>&&);
+  bool need_setup() const noexcept override { return false; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override {}
+  void evaluate_online() override;
+
+ private:
+  using is_enabled_ = ENCRYPTO::is_unsigned_int_t<T>;
+};
+
 }  // namespace MOTION::proto::gmw
