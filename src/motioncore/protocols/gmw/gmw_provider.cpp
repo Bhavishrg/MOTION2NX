@@ -343,6 +343,8 @@ WireVector GMWProvider::make_unary_gate(ENCRYPTO::PrimitiveOperationType op,
       return make_neg_gate(in_a);
     case ENCRYPTO::PrimitiveOperationType::SQR:
       return make_sqr_gate(in_a);
+    case ENCRYPTO::PrimitiveOperationType::HAM:
+      return make_ham_gate(in_a);
     default:
       throw std::logic_error(
           fmt::format("GMW does not support the unary operation {}", ToString(op)));
@@ -603,6 +605,10 @@ WireVector GMWProvider::make_mul_gate(const WireVector& in_a, const WireVector& 
 
 WireVector GMWProvider::make_sqr_gate(const WireVector& in) {
   return make_arithmetic_unary_gate<ArithmeticGMWSQRGate>(in);
+}
+
+WireVector GMWProvider::make_ham_gate(const WireVector& in) {
+  return make_arithmetic_unary_gate<ArithmeticGMWHAMGate>(in);
 }
 
 template <typename T>
