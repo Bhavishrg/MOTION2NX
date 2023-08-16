@@ -378,6 +378,7 @@ class ArithmeticGMWHAMGate : public detail::BasicArithmeticGMWUnaryGate<T> {
   GMWProvider& gmw_provider_;
   std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
   std::vector<T> arith_randoms_;
+  std::vector<T> random_bits_arith_;
 };
 
 }  // namespace MOTION::proto::gmw

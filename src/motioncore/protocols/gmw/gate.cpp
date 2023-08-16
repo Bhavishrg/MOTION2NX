@@ -915,11 +915,6 @@ ArithmeticGMWHAMGate<T>::ArithmeticGMWHAMGate(std::size_t gate_id, GMWProvider& 
                                               ArithmeticGMWWireP<T>&& in_a)
     : detail::BasicArithmeticGMWUnaryGate<T>(gate_id, gmw_provider, std::move(in_a)),
       gmw_provider_(gmw_provider)
-      // mt_offset_(
-      //     gmw_provider.get_mt_provider().RequestArithmeticMTs<T>(this->input_a_->get_num_simd())), 
-      // TODO(pranav): Not sure if we will even need this.
-      // share_futures_(gmw_provider_.register_for_ints_messages<T>(
-      //     this->gate_id_, 2 * this->input_a_->get_num_simd())) 
           {
             const auto num_simd = this->input_->get_num_simd();
             auto num_bits = sizeof(T) * 8;
@@ -931,6 +926,8 @@ ArithmeticGMWHAMGate<T>::ArithmeticGMWHAMGate(std::size_t gate_id, GMWProvider& 
               assert(my_id == 1); // Only two parties.
               ot_receiver_ = ot_provider.RegisterReceiveACOT<T>(num_bits * num_simd);
             }
+            share_futures_ = gmw_provider_.register_for_ints_messages<T>(
+              this->gate_id_, num_simd);
           }
 
 template <typename T>
@@ -939,7 +936,6 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     auto num_bits = sizeof(T) * 8;
     auto random_bits = ENCRYPTO::BitVector<>::Random(num_simd * num_bits);
     // ------ Bit2A to generate the arithmetic shares of random_bits --------//
-    std::vector<T> ot_output;
     if (ot_sender_ != nullptr) {
       std::vector<T> correlations(num_bits * num_simd);
       for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
@@ -950,20 +946,20 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
       ot_sender_->SetCorrelations(std::move(correlations));
       ot_sender_->SendMessages();
       ot_sender_->ComputeOutputs();
-      ot_output = ot_sender_->GetOutputs();
+      random_bits_arith_ = ot_sender_->GetOutputs();
       for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
         T bit = random_bits.Get(j);
-        ot_output[j] = bit + 2 * ot_output[j];
+        random_bits_arith_[j] = bit + 2 * random_bits_arith_[j];
       }
     } else {
       assert(ot_receiver_ != nullptr);
       ot_receiver_->SetChoices(random_bits);
       ot_receiver_->SendCorrections();
       ot_receiver_->ComputeOutputs();
-      ot_output = ot_receiver_->GetOutputs();
+      random_bits_arith_ = ot_receiver_->GetOutputs();
       for (std::size_t j = 0; j < num_simd; ++j) {
         T bit = random_bits.Get(j);
-        ot_output[j] = bit - 2 * ot_output[j];
+        random_bits_arith_[j] = bit - 2 * random_bits_arith_[j];
       }
     }
     // ------ End Bit2A -----------------------------------------------------//
@@ -972,16 +968,43 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     for (int i = 0; i < num_simd; ++i) {
       T sum = 0;
       for (int j = 0; j < num_bits; ++j) {
-        sum += (1LL << j) * ot_output[i * num_bits + j];
+        sum += (1LL << j) * random_bits_arith_[i * num_bits + j];
       }
       arith_randoms_.push_back(sum);
     }
-    // TODO(pranav): Check if we need to depend on the input Secret share to be ready?
-    // TODO(pranav): Same for output?
+    // TODO(pranav): Check if this line is enough.. (I thin so as GMW has just the online phase.)
+    this->set_setup_ready();
 }
 
+// TODO(pranav): Make all for loops parallel.
 template <typename T>
 void ArithmeticGMWHAMGate<T>::evaluate_online() {
+  this->wait_setup();
+  auto num_simd = this->input_->get_num_simd();
+  auto num_bits = sizeof(T) * 8;
+  const auto my_id = gmw_provider_.get_my_id();
+  const auto& x = this->input_->get_share();
+  // ------ reconstruct input + R ---------------------------
+  std::vector<T> input_plus_random(num_simd);
+  for (std::size_t i = 0; i < num_simd; ++i) {
+    input_plus_random[i] = x[i] + arith_randoms_[i];
+  }
+  gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
+  std::vector<T> a = share_futures_[1 - my_id].get();
+  for (int i = 0; i < num_simd; ++i) {
+    a[i] += input_plus_random[i];
+  }
+  // ------ compute the hamming distance --------------------
+  auto& out = this->output_->get_share();
+  for (std::size_t i = 0; i < num_simd; ++i) {
+    out[i] = 0;
+    for (int j = 0; j < num_bits; ++j) {
+      int a_bit = (a[i] >> j) & 1;
+      out[i] += a_bit + random_bits_arith_[i * num_bits + j] - 
+        2 * a_bit * random_bits_arith_[i * num_bits + j];
+    }
+  }
+  this->output_->set_online_ready();
 }
 
 template class ArithmeticGMWHAMGate<std::uint8_t>;
