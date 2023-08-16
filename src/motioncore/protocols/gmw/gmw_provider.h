@@ -32,6 +32,8 @@
 #include "utility/bit_vector.h"
 #include "utility/enable_wait.h"
 #include "utility/type_traits.hpp"
+#include "crypto/oblivious_transfer/ot_flavors.h"
+#include "crypto/oblivious_transfer/ot_provider.h"
 
 namespace ENCRYPTO::ObliviousTransfer {
 class OTProviderManager;
@@ -246,6 +248,7 @@ class GMWProvider : public GateFactory,
   WireVector make_add_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_mul_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_sqr_gate(const WireVector& in_a);
+  WireVector make_ham_gate(const WireVector& in_a);
   template <typename T>
   WireVector basic_make_convert_to_arithmetic_gmw_gate(BooleanGMWWireVector&& in_a);
   WireVector make_convert_to_arithmetic_gmw_gate(BooleanGMWWireVector&& in_a);
