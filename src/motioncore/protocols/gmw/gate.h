@@ -37,6 +37,13 @@ template <typename T>
 class BitIntegerMultiplicationIntSide;
 }  // namespace MOTION
 
+namespace ENCRYPTO::ObliviousTransfer {
+template <typename T>
+class ACOTSender;
+template <typename T>
+class ACOTReceiver;
+}  // namespace ENCRYPTO::ObliviousTransfer
+
 namespace MOTION::proto::gmw {
 
 namespace detail {
@@ -361,11 +368,16 @@ class ArithmeticGMWHAMGate : public detail::BasicArithmeticGMWUnaryGate<T> {
   ArithmeticGMWHAMGate(std::size_t gate_id, GMWProvider&, ArithmeticGMWWireP<T>&&);
   bool need_setup() const noexcept override { return true; }
   bool need_online() const noexcept override { return true; }
-  void evaluate_setup() override {}
+  void evaluate_setup() override;
   void evaluate_online() override;
 
  private:
   using is_enabled_ = ENCRYPTO::is_unsigned_int_t<T>;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::ACOTSender<T>> ot_sender_;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::ACOTReceiver<T>> ot_receiver_;
+  GMWProvider& gmw_provider_;
+  std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
+  std::vector<T> arith_randoms_;
 };
 
 }  // namespace MOTION::proto::gmw

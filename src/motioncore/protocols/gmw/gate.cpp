@@ -30,6 +30,8 @@
 #include "crypto/multiplication_triple/mt_provider.h"
 #include "crypto/multiplication_triple/sp_provider.h"
 #include "crypto/sharing_randomness_generator.h"
+#include "crypto/oblivious_transfer/ot_flavors.h"
+#include "crypto/oblivious_transfer/ot_provider.h"
 #include "gmw_provider.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"
@@ -912,29 +914,74 @@ template <typename T>
 ArithmeticGMWHAMGate<T>::ArithmeticGMWHAMGate(std::size_t gate_id, GMWProvider& gmw_provider,
                                               ArithmeticGMWWireP<T>&& in_a)
     : detail::BasicArithmeticGMWUnaryGate<T>(gate_id, gmw_provider, std::move(in_a)),
-      gmw_provider_(gmw_provider),
-      mt_offset_(
-          gmw_provider.get_mt_provider().RequestArithmeticMTs<T>(this->input_a_->get_num_simd())), // Not sure if we will even need this.
-      share_futures_(gmw_provider_.register_for_ints_messages<T>(
-          this->gate_id_, 2 * this->input_a_->get_num_simd())) {}
+      gmw_provider_(gmw_provider)
+      // mt_offset_(
+      //     gmw_provider.get_mt_provider().RequestArithmeticMTs<T>(this->input_a_->get_num_simd())), 
+      // TODO(pranav): Not sure if we will even need this.
+      // share_futures_(gmw_provider_.register_for_ints_messages<T>(
+      //     this->gate_id_, 2 * this->input_a_->get_num_simd())) 
+          {
+            const auto num_simd = this->input_->get_num_simd();
+            auto num_bits = sizeof(T) * 8;
+            const auto my_id = gmw_provider_.get_my_id();
+            auto& ot_provider = gmw_provider_.get_ot_manager().get_provider(1 - my_id);
+            if (my_id == 0) {
+              ot_sender_ = ot_provider.RegisterSendACOT<T>(num_bits * num_simd);
+            } else {
+              assert(my_id == 1); // Only two parties.
+              ot_receiver_ = ot_provider.RegisterReceiveACOT<T>(num_bits * num_simd);
+            }
+          }
 
 template <typename T>
-void ArithmeticGMWMULGate<T>::evaluate_setup() {
-    auto num_simd = this->input_a_->get_num_simd();
-    this->input_a_->wait_setup();
-
-    this->output_->set_setup_ready();
+void ArithmeticGMWHAMGate<T>::evaluate_setup() {
+    auto num_simd = this->input_->get_num_simd();
+    auto num_bits = sizeof(T) * 8;
+    auto random_bits = ENCRYPTO::BitVector<>::Random(num_simd * num_bits);
+    // ------ Bit2A to generate the arithmetic shares of random_bits --------//
+    std::vector<T> ot_output;
+    if (ot_sender_ != nullptr) {
+      std::vector<T> correlations(num_bits * num_simd);
+      for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
+        if (random_bits.Get(j)) {
+          correlations[j] = 1;
+        }
+      }
+      ot_sender_->SetCorrelations(std::move(correlations));
+      ot_sender_->SendMessages();
+      ot_sender_->ComputeOutputs();
+      ot_output = ot_sender_->GetOutputs();
+      for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
+        T bit = random_bits.Get(j);
+        ot_output[j] = bit + 2 * ot_output[j];
+      }
+    } else {
+      assert(ot_receiver_ != nullptr);
+      ot_receiver_->SetChoices(random_bits);
+      ot_receiver_->SendCorrections();
+      ot_receiver_->ComputeOutputs();
+      ot_output = ot_receiver_->GetOutputs();
+      for (std::size_t j = 0; j < num_simd; ++j) {
+        T bit = random_bits.Get(j);
+        ot_output[j] = bit - 2 * ot_output[j];
+      }
+    }
+    // ------ End Bit2A -----------------------------------------------------//
+    // Generate additive share of the random numbers for revelation later.
+    // Local operation.
+    for (int i = 0; i < num_simd; ++i) {
+      T sum = 0;
+      for (int j = 0; j < num_bits; ++j) {
+        sum += (1LL << j) * ot_output[i * num_bits + j];
+      }
+      arith_randoms_.push_back(sum);
+    }
+    // TODO(pranav): Check if we need to depend on the input Secret share to be ready?
+    // TODO(pranav): Same for output?
 }
 
 template <typename T>
-void ArithmeticGMWMULGate<T>::evaluate_online() {
-  auto num_simd = this->input_a_->get_num_simd();
-  const auto& mtp = gmw_provider_.get_mt_provider();
-  const auto& all_mts = mtp.GetIntegerAll<T>();
-  this->input_a_->wait_online();
-  this->input_b_->wait_online();
-  this->output_->get_share() = std::move(result);
-  this->output_->set_online_ready();
+void ArithmeticGMWHAMGate<T>::evaluate_online() {
 }
 
 template class ArithmeticGMWHAMGate<std::uint8_t>;
