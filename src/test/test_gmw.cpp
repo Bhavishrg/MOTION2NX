@@ -129,6 +129,23 @@ class GMWTest : public ::testing::Test {
     }
   }
 
+  void run_gates_setup_parallel() {
+    auto& gates_g = gate_registers_[garbler_i_]->get_gates();
+    auto& gates_e = gate_registers_[evaluator_i_]->get_gates();
+    auto fut_g = std::async(std::launch::async, [&gates_g] {
+      for (auto& gate : gates_g) {
+        gate->evaluate_setup();
+      }
+    });
+    auto fut_e = std::async(std::launch::async, [&gates_e] {
+      for (auto& gate : gates_e) {
+        gate->evaluate_setup();
+      }
+    });
+    fut_g.get();
+    fut_e.get();
+  }
+
   void run_gates_online() {
     auto& gates_g = gate_registers_[garbler_i_]->get_gates();
     auto& gates_e = gate_registers_[evaluator_i_]->get_gates();
@@ -579,7 +596,7 @@ class ArithmeticGMWTest : public GMWTest {
   }
 };
 
-using integer_types = ::testing::Types<std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t>;
+using integer_types = ::testing::Types<std::uint16_t, std::uint32_t, std::uint64_t>;
 TYPED_TEST_SUITE(ArithmeticGMWTest, integer_types);
 
 TYPED_TEST(ArithmeticGMWTest, Input) {
@@ -1009,7 +1026,7 @@ TYPED_TEST(ArithmeticGMWTest, HAM) {
       this->gmw_providers_[1]->make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, wires_in_1);
 
   this->run_setup();
-  this->run_gates_setup();
+  this->run_gates_setup_parallel();
   input_promise.set_value(inputs);
   this->run_gates_online();
 

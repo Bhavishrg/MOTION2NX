@@ -934,6 +934,7 @@ template <typename T>
 void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     auto num_simd = this->input_->get_num_simd();
     auto num_bits = sizeof(T) * 8;
+    const auto my_id = gmw_provider_.get_my_id();
     auto random_bits = ENCRYPTO::BitVector<>::Random(num_simd * num_bits);
     // ------ Bit2A to generate the arithmetic shares of random_bits --------//
     if (ot_sender_ != nullptr) {
@@ -979,6 +980,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
 // TODO(pranav): Make all for loops parallel.
 template <typename T>
 void ArithmeticGMWHAMGate<T>::evaluate_online() {
+  this->input_->wait_online();
   this->wait_setup();
   auto num_simd = this->input_->get_num_simd();
   auto num_bits = sizeof(T) * 8;
@@ -996,11 +998,12 @@ void ArithmeticGMWHAMGate<T>::evaluate_online() {
   }
   // ------ compute the hamming distance --------------------
   auto& out = this->output_->get_share();
+  out.resize(num_simd);
   for (std::size_t i = 0; i < num_simd; ++i) {
     out[i] = 0;
     for (int j = 0; j < num_bits; ++j) {
       int a_bit = (a[i] >> j) & 1;
-      out[i] += a_bit + random_bits_arith_[i * num_bits + j] - 
+      out[i] += (T)(my_id * a_bit) + random_bits_arith_[i * num_bits + j] - 
         2 * a_bit * random_bits_arith_[i * num_bits + j];
     }
   }
