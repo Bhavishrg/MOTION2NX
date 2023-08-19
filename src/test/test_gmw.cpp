@@ -596,7 +596,7 @@ class ArithmeticGMWTest : public GMWTest {
   }
 };
 
-using integer_types = ::testing::Types<std::uint16_t, std::uint32_t, std::uint64_t>;
+using integer_types = ::testing::Types<std::uint8_t, std::uint16_t, std::uint32_t, std::uint64_t>;
 TYPED_TEST_SUITE(ArithmeticGMWTest, integer_types);
 
 TYPED_TEST(ArithmeticGMWTest, Input) {
@@ -992,29 +992,31 @@ TYPED_TEST(ArithmeticGMWTest, SQR) {
 
 TYPED_TEST(ArithmeticGMWTest, HAM) {
   std::size_t num_simd = 10;
-  // const auto inputs = this->generate_inputs(num_simd);
-  std::vector<TypeParam> inputs = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  const auto inputs = this->generate_inputs(num_simd);
   const auto num_bits = sizeof(TypeParam) * 8;
-  std::cout << "The size of the input is (bits)" << num_bits << std::endl;
-  if (num_bits == 8) {
-    return;
-  }
   std::vector<TypeParam> expected_output;
-  std::transform(std::begin(inputs), std::end(inputs), std::back_inserter(expected_output),
+  const auto r1 = ENCRYPTO::BitVector<>::RandomSeeded(num_bits * num_simd, 0);
+  const auto r2 = ENCRYPTO::BitVector<>::RandomSeeded(num_bits * num_simd, 1);
+  const auto r = r1 ^ r2;
+  std::vector<TypeParam> iplusr;
+  for (int i = 0; i < num_simd; ++i) {
+    TypeParam R = 0;
+    for (int j = 0; j < num_bits; ++j) {
+      TypeParam one = 1;
+      R += (TypeParam)(one << j) * (TypeParam)(r.Get(i*num_bits + j));
+    }
+    iplusr.push_back(((inputs[i] + R)^R));
+  }
+  std::transform(std::begin(iplusr), std::end(iplusr), std::back_inserter(expected_output),
                  [](auto x) {
                   int ham_dist = 0;
                   for (int j = 0; j < num_bits; j++) {
-                    if (x & (1 << j)) {
+                    if ((x >> j)&1) {
                       ham_dist += 1;
                     }
                   }
                   return ham_dist;
                   });
-  
-  for (int i = 0; i < num_simd; i++) {
-    std::cout << "The input is " << inputs[i] << 
-      " and the hamming distance is " << expected_output[i] << std::endl;
-  }
 
   // input of party 0
   auto [input_promise, wires_in_0] = this->make_arithmetic_T_input_gate_my(0, 0, num_simd);
