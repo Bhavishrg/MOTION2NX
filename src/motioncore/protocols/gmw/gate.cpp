@@ -935,10 +935,10 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     auto num_simd = this->input_->get_num_simd();
     auto num_bits = sizeof(T) * 8;
     const auto my_id = gmw_provider_.get_my_id();
-    auto random_bits = ENCRYPTO::BitVector<>::Random(num_simd * num_bits);
+    auto random_bits = ENCRYPTO::BitVector<>::RandomSeeded(num_simd * num_bits, this->gate_id_ * my_id); // Seeded for testing
     // ------ Bit2A to generate the arithmetic shares of random_bits --------//
     if (ot_sender_ != nullptr) {
-      std::vector<T> correlations(num_bits * num_simd);
+      std::vector<T> correlations(num_bits * num_simd, 0);
       for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
         if (random_bits.Get(j)) {
           correlations[j] = 1;
@@ -950,7 +950,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
       random_bits_arith_ = ot_sender_->GetOutputs();
       for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
         T bit = random_bits.Get(j);
-        random_bits_arith_[j] = bit - 2 * random_bits_arith_[j]; // This was bit + 2 * random_bits_arith_[j]
+        random_bits_arith_[j] = bit + 2 * random_bits_arith_[j];
       }
     } else {
       assert(ot_receiver_ != nullptr);
@@ -958,7 +958,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
       ot_receiver_->SendCorrections();
       ot_receiver_->ComputeOutputs();
       random_bits_arith_ = ot_receiver_->GetOutputs();
-      for (std::size_t j = 0; j < num_simd; ++j) {
+      for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
         T bit = random_bits.Get(j);
         random_bits_arith_[j] = bit - 2 * random_bits_arith_[j];
       }
@@ -969,11 +969,11 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     for (int i = 0; i < num_simd; ++i) {
       T sum = 0;
       for (int j = 0; j < num_bits; ++j) {
-        sum += (1LL << j) * random_bits_arith_[i * num_bits + j];
+        T one = 1;
+        sum += ((T)(one << j)) * (T)(random_bits_arith_[i * num_bits + j]);
       }
       arith_randoms_.push_back(sum);
     }
-    // TODO(pranav): Check if this line is enough.. (I thin so as GMW has just the online phase.)
     this->set_setup_ready();
 }
 
@@ -1002,7 +1002,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_online() {
   for (std::size_t i = 0; i < num_simd; ++i) {
     out[i] = 0;
     for (int j = 0; j < num_bits; ++j) {
-      int a_bit = (a[i] >> j) & 1;
+      T a_bit = (a[i] >> j) & 1;
       out[i] += (T)(my_id * a_bit) + random_bits_arith_[i * num_bits + j] - 
         2 * a_bit * random_bits_arith_[i * num_bits + j];
     }
