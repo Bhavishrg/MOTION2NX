@@ -950,7 +950,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
       random_bits_arith_ = ot_sender_->GetOutputs();
       for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
         T bit = random_bits.Get(j);
-        random_bits_arith_[j] = bit + 2 * random_bits_arith_[j];
+        random_bits_arith_[j] = bit - 2 * random_bits_arith_[j]; // This was bit + 2 * random_bits_arith_[j]
       }
     } else {
       assert(ot_receiver_ != nullptr);
