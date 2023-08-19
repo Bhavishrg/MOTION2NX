@@ -35,6 +35,7 @@
 #include "gmw_provider.h"
 #include "utility/helpers.h"
 #include "utility/logger.h"
+#include <omp.h>
 #include "wire.h"
 
 namespace MOTION::proto::gmw {
@@ -939,6 +940,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     // ------ Bit2A to generate the arithmetic shares of random_bits --------//
     if (ot_sender_ != nullptr) {
       std::vector<T> correlations(num_bits * num_simd, 0);
+#pragma omp for
       for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
         if (random_bits.Get(j)) {
           correlations[j] = 1;
@@ -948,6 +950,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
       ot_sender_->SendMessages();
       ot_sender_->ComputeOutputs();
       random_bits_arith_ = ot_sender_->GetOutputs();
+#pragma omp for
       for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
         T bit = random_bits.Get(j);
         random_bits_arith_[j] = bit + 2 * random_bits_arith_[j];
@@ -958,6 +961,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
       ot_receiver_->SendCorrections();
       ot_receiver_->ComputeOutputs();
       random_bits_arith_ = ot_receiver_->GetOutputs();
+#pragma omp for
       for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
         T bit = random_bits.Get(j);
         random_bits_arith_[j] = bit - 2 * random_bits_arith_[j];
@@ -966,6 +970,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     // ------ End Bit2A -----------------------------------------------------//
     // Generate additive share of the random numbers for revelation later.
     // Local operation.
+#pragma omp for
     for (int i = 0; i < num_simd; ++i) {
       T sum = 0;
       for (int j = 0; j < num_bits; ++j) {
@@ -977,7 +982,6 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     this->set_setup_ready();
 }
 
-// TODO(pranav): Make all for loops parallel.
 template <typename T>
 void ArithmeticGMWHAMGate<T>::evaluate_online() {
   this->input_->wait_online();
@@ -988,17 +992,20 @@ void ArithmeticGMWHAMGate<T>::evaluate_online() {
   const auto& x = this->input_->get_share();
   // ------ reconstruct input + R ---------------------------
   std::vector<T> input_plus_random(num_simd);
+#pragma omp for
   for (std::size_t i = 0; i < num_simd; ++i) {
     input_plus_random[i] = x[i] + arith_randoms_[i];
   }
   gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
   std::vector<T> a = share_futures_[1 - my_id].get();
+#pragma omp for
   for (int i = 0; i < num_simd; ++i) {
     a[i] += input_plus_random[i];
   }
   // ------ compute the hamming distance --------------------
   auto& out = this->output_->get_share();
   out.resize(num_simd);
+#pragma omp for
   for (std::size_t i = 0; i < num_simd; ++i) {
     out[i] = 0;
     for (int j = 0; j < num_bits; ++j) {

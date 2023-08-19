@@ -991,7 +991,7 @@ TYPED_TEST(ArithmeticGMWTest, SQR) {
 }
 
 TYPED_TEST(ArithmeticGMWTest, HAM) {
-  std::size_t num_simd = 10;
+  std::size_t num_simd = 1000;
   const auto inputs = this->generate_inputs(num_simd);
   const auto num_bits = sizeof(TypeParam) * 8;
   std::vector<TypeParam> expected_output;
