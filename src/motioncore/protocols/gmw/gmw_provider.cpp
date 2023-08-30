@@ -615,12 +615,14 @@ WireVector GMWProvider::make_ham_gate(const WireVector& in) {
 
 template <template <typename> class UnaryGate, typename T>
 WireVector GMWProvider::make_arithmetic_boolean_unary_gate(const NewWireP& in_a) {
+  BooleanGMWWireVector output;
   auto gate_id = gate_register_.get_next_gate_id();
   auto gate = std::make_unique<UnaryGate<T>>(
       gate_id, *this, cast_arith_wire<T>(in_a));
-  auto output = cast_wires(std::move(gate->get_output_wires()));
+  output = gate->get_output_wires();
+
   gate_register_.register_gate(std::move(gate));
-  return output;
+  return cast_wires(std::move(output));
 }
 
 template <template <typename> class UnaryGate>

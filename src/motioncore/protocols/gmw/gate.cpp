@@ -38,6 +38,8 @@
 #include <omp.h>
 #include "wire.h"
 
+#include "utility/fss.h"
+
 namespace MOTION::proto::gmw {
 
 namespace detail {
@@ -1049,17 +1051,10 @@ ArithmeticGMWDPFGate<T>::ArithmeticGMWDPFGate(std::size_t gate_id, GMWProvider& 
                                               ArithmeticGMWWireP<T>&& in_a)
     : detail::BasicArithmeticXBooleanGMWUnaryGate<T>(gate_id, gmw_provider, std::move(in_a)),
       gmw_provider_(gmw_provider)
-          {
+          { 
             const auto num_simd = this->input_->get_num_simd();
             auto num_bits = sizeof(T) * 8;
             const auto my_id = gmw_provider_.get_my_id();
-            auto& ot_provider = gmw_provider_.get_ot_manager().get_provider(1 - my_id);
-            if (my_id == 0) {
-              ot_sender_ = ot_provider.RegisterSendACOT<T>(num_bits * num_simd);
-            } else {
-              assert(my_id == 1); // Only two parties.
-              ot_receiver_ = ot_provider.RegisterReceiveACOT<T>(num_bits * num_simd);
-            }
             share_futures_ = gmw_provider_.register_for_ints_messages<T>(
               this->gate_id_, num_simd);
           }
@@ -1094,13 +1089,11 @@ void ArithmeticGMWDPFGate<T>::evaluate_online() {
     a[i] += input_plus_random[i];
   }
   // ------ (to do)Eval DPF --------------------
-
   // set output
   auto& wire_o = this->output_[0];
   // (To do) Check how to parllelize this step
   // #pragma omp for
   for (std::size_t i = 0; i < num_simd; ++i) {
-    
     if(a[i] + input_plus_random[i]==0){
      wire_o->get_share().Append(0);
     }
