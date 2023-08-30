@@ -413,6 +413,27 @@ template class BasicArithmeticGMWBinaryGate<std::uint32_t>;
 template class BasicArithmeticGMWBinaryGate<std::uint64_t>;
 
 template <typename T>
+BasicArithmeticXBooleanGMWUnaryGate<T>::BasicArithmeticXBooleanGMWUnaryGate(std::size_t gate_id, GMWProvider&,
+                                                            ArithmeticGMWWireP<T>&& in)
+    : NewGate(gate_id),
+      input_(std::move(in)) {
+        auto num_wires = 1;
+        auto num_simd = this->input_->get_num_simd();
+        output_.reserve(num_wires);
+        std::generate_n(std::back_inserter(output_), num_wires, [num_simd] {
+          auto wire = std::make_shared<BooleanGMWWire>(num_simd);
+          wire->get_share().Resize(num_simd);
+          return wire;
+  });
+
+      }
+
+template class BasicArithmeticXBooleanGMWUnaryGate<std::uint8_t>;
+template class BasicArithmeticXBooleanGMWUnaryGate<std::uint16_t>;
+template class BasicArithmeticXBooleanGMWUnaryGate<std::uint32_t>;
+template class BasicArithmeticXBooleanGMWUnaryGate<std::uint64_t>;
+
+template <typename T>
 BasicArithmeticGMWUnaryGate<T>::BasicArithmeticGMWUnaryGate(std::size_t gate_id, GMWProvider&,
                                                             ArithmeticGMWWireP<T>&& in)
     : NewGate(gate_id),
@@ -1021,5 +1042,80 @@ template class ArithmeticGMWHAMGate<std::uint8_t>;
 template class ArithmeticGMWHAMGate<std::uint16_t>;
 template class ArithmeticGMWHAMGate<std::uint32_t>;
 template class ArithmeticGMWHAMGate<std::uint64_t>;
+
+
+template <typename T>
+ArithmeticGMWDPFGate<T>::ArithmeticGMWDPFGate(std::size_t gate_id, GMWProvider& gmw_provider,
+                                              ArithmeticGMWWireP<T>&& in_a)
+    : detail::BasicArithmeticXBooleanGMWUnaryGate<T>(gate_id, gmw_provider, std::move(in_a)),
+      gmw_provider_(gmw_provider)
+          {
+            const auto num_simd = this->input_->get_num_simd();
+            auto num_bits = sizeof(T) * 8;
+            const auto my_id = gmw_provider_.get_my_id();
+            auto& ot_provider = gmw_provider_.get_ot_manager().get_provider(1 - my_id);
+            if (my_id == 0) {
+              ot_sender_ = ot_provider.RegisterSendACOT<T>(num_bits * num_simd);
+            } else {
+              assert(my_id == 1); // Only two parties.
+              ot_receiver_ = ot_provider.RegisterReceiveACOT<T>(num_bits * num_simd);
+            }
+            share_futures_ = gmw_provider_.register_for_ints_messages<T>(
+              this->gate_id_, num_simd);
+          }
+
+
+template <typename T>
+void ArithmeticGMWDPFGate<T>::evaluate_setup() {
+    // auto num_simd = this->input_->get_num_simd();
+    // auto num_bits = sizeof(T) * 8;
+    // const auto my_id = gmw_provider_.get_my_id();
+    this->set_setup_ready();
+}
+
+template <typename T>
+void ArithmeticGMWDPFGate<T>::evaluate_online() {
+  this->input_->wait_online();
+  this->wait_setup();
+  auto num_simd = this->input_->get_num_simd();
+  // auto num_bits = sizeof(T) * 8;
+  const auto my_id = gmw_provider_.get_my_id();
+  const auto& x = this->input_->get_share();
+  // ------ reconstruct input + R ---------------------------
+  std::vector<T> input_plus_random(num_simd);
+  #pragma omp for
+  for (std::size_t i = 0; i < num_simd; ++i) {
+    input_plus_random[i] = x[i]; // + randoms_[i];
+  }
+  gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
+  std::vector<T> a = share_futures_[1 - my_id].get();
+  #pragma omp for
+  for (int i = 0; i < num_simd; ++i) {
+    a[i] += input_plus_random[i];
+  }
+  // ------ (to do)Eval DPF --------------------
+
+  // set output
+  auto& wire_o = this->output_[0];
+  // (To do) Check how to parllelize this step
+  // #pragma omp for
+  for (std::size_t i = 0; i < num_simd; ++i) {
+    
+    if(a[i] + input_plus_random[i]==0){
+     wire_o->get_share().Append(0);
+    }
+    else{
+      wire_o->get_share().Append(0);
+    }
+  }
+  wire_o->set_online_ready();
+
+}
+
+template class ArithmeticGMWDPFGate<std::uint8_t>;
+template class ArithmeticGMWDPFGate<std::uint16_t>;
+template class ArithmeticGMWDPFGate<std::uint32_t>;
+template class ArithmeticGMWDPFGate<std::uint64_t>;
+
 
 }  // namespace MOTION::proto::gmw

@@ -345,6 +345,8 @@ WireVector GMWProvider::make_unary_gate(ENCRYPTO::PrimitiveOperationType op,
       return make_sqr_gate(in_a);
     case ENCRYPTO::PrimitiveOperationType::HAM:
       return make_ham_gate(in_a);
+    case ENCRYPTO::PrimitiveOperationType::DPF:
+      return make_dpf_gate(in_a);
     default:
       throw std::logic_error(
           fmt::format("GMW does not support the unary operation {}", ToString(op)));
@@ -609,6 +611,37 @@ WireVector GMWProvider::make_sqr_gate(const WireVector& in) {
 
 WireVector GMWProvider::make_ham_gate(const WireVector& in) {
   return make_arithmetic_unary_gate<ArithmeticGMWHAMGate>(in);
+}
+
+template <template <typename> class UnaryGate, typename T>
+WireVector GMWProvider::make_arithmetic_boolean_unary_gate(const NewWireP& in_a) {
+  auto gate_id = gate_register_.get_next_gate_id();
+  auto gate = std::make_unique<UnaryGate<T>>(
+      gate_id, *this, cast_arith_wire<T>(in_a));
+  auto output = cast_wires(std::move(gate->get_output_wires()));
+  gate_register_.register_gate(std::move(gate));
+  return output;
+}
+
+template <template <typename> class UnaryGate>
+WireVector GMWProvider::make_arithmetic_boolean_unary_gate(const WireVector& in_a) {
+  auto bit_size = check_arithmetic_wire(in_a);
+  switch (bit_size) {
+    case 8:
+      return make_arithmetic_boolean_unary_gate<UnaryGate, std::uint8_t>(in_a[0]);
+    case 16:
+      return make_arithmetic_boolean_unary_gate<UnaryGate, std::uint16_t>(in_a[0]);
+    case 32:
+      return make_arithmetic_boolean_unary_gate<UnaryGate, std::uint32_t>(in_a[0]);
+    case 64:
+      return make_arithmetic_boolean_unary_gate<UnaryGate, std::uint64_t>(in_a[0]);
+    default:
+      throw std::logic_error(fmt::format("unexpected bit size {}", bit_size));
+  }
+}
+
+WireVector GMWProvider::make_dpf_gate(const WireVector& in) {
+  return make_arithmetic_boolean_unary_gate<ArithmeticGMWDPFGate>(in);
 }
 
 template <typename T>

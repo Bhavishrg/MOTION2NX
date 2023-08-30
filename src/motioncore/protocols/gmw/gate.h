@@ -200,6 +200,18 @@ class BasicArithmeticGMWUnaryGate : public NewGate {
 };
 
 template <typename T>
+class BasicArithmeticXBooleanGMWUnaryGate : public NewGate {
+ public:
+  BasicArithmeticXBooleanGMWUnaryGate(std::size_t gate_id, GMWProvider&, ArithmeticGMWWireP<T>&&);
+  BooleanGMWWireVector& get_output_wires() noexcept { return output_; }
+  
+ protected:
+  std::size_t num_wires_;
+  const ArithmeticGMWWireP<T> input_;
+  BooleanGMWWireVector output_;
+};
+
+template <typename T>
 class BasicBooleanXArithmeticGMWBinaryGate : public NewGate {
  public:
   BasicBooleanXArithmeticGMWBinaryGate(std::size_t gate_id, GMWProvider&, BooleanGMWWireP&&,
@@ -379,6 +391,24 @@ class ArithmeticGMWHAMGate : public detail::BasicArithmeticGMWUnaryGate<T> {
   std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
   std::vector<T> arith_randoms_;
   std::vector<T> random_bits_arith_;
+};
+
+template <typename T>
+class ArithmeticGMWDPFGate : public detail::BasicArithmeticXBooleanGMWUnaryGate<T> {
+ public:
+  ArithmeticGMWDPFGate(std::size_t gate_id, GMWProvider&, ArithmeticGMWWireP<T>&&);
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+
+ private:
+  using is_enabled_ = ENCRYPTO::is_unsigned_int_t<T>;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::ACOTSender<T>> ot_sender_;
+  std::unique_ptr<ENCRYPTO::ObliviousTransfer::ACOTReceiver<T>> ot_receiver_;
+  GMWProvider& gmw_provider_;
+  std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
+  std::vector<T> randoms_;
 };
 
 }  // namespace MOTION::proto::gmw
