@@ -191,14 +191,9 @@ auto create_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
   MOTION::WireVector input_0_arith, input_1_arith;
   if (options.my_id == 0) {
     auto pair = gate_factory_arith.make_arithmetic_64_input_gate_my(options.my_id, 1);
-    input_promise = std::move(pair.first);
     input_0_arith = std::move(pair.second);
-    input_1_arith = gate_factory_arith.make_arithmetic_64_input_gate_other(1 - options.my_id, 1);
   } else {
     input_0_arith = gate_factory_arith.make_arithmetic_64_input_gate_other(1 - options.my_id, 1);
-    auto pair = gate_factory_arith.make_arithmetic_64_input_gate_my(options.my_id, 1);
-    input_promise = std::move(pair.first);
-    input_1_arith = std::move(pair.second);
   }
 
   auto output = gate_factory_arith.make_unary_gate(

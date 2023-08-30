@@ -1091,14 +1091,14 @@ void ArithmeticGMWDPFGate<T>::evaluate_online() {
   // ------ (to do)Eval DPF --------------------
   // set output
   auto& wire_o = this->output_[0];
+
+  auto& out_share = wire_o->get_share();
+  out_share.Resize(num_simd, true);
   // (To do) Check how to parllelize this step
-  // #pragma omp for
+  #pragma omp for
   for (std::size_t i = 0; i < num_simd; ++i) {
-    if(a[i] + input_plus_random[i]==0){
-     wire_o->get_share().Append(0);
-    }
-    else{
-      wire_o->get_share().Append(0);
+    if(a[i] + input_plus_random[i]!=0){
+     out_share.Set(1, i);
     }
   }
   wire_o->set_online_ready();
