@@ -30,6 +30,10 @@
 #include "utility/type_traits.hpp"
 #include "wire.h"
 
+#include "fss/fss_uint8.h"     // FSS functions
+#include "fss/fss_uint16.h"     // FSS functions
+#include "fss/fss_uint64.h"     // FSS functions
+
 namespace MOTION {
 template <typename T>
 class BitIntegerMultiplicationBitSide;
@@ -409,6 +413,9 @@ class ArithmeticGMWDPFGate : public detail::BasicArithmeticXBooleanGMWUnaryGate<
   GMWProvider& gmw_provider_;
   std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
   std::vector<T> randoms_;
+  uint8_t k0_8[KEY_LEN_8], k1_8[KEY_LEN_8];
+  uint8_t k0_16[KEY_LEN_16], k1_16[KEY_LEN_16];
+  uint8_t k0_64[KEY_LEN_64], k1_64[KEY_LEN_64];
 };
 
 }  // namespace MOTION::proto::gmw

@@ -191,9 +191,14 @@ auto create_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
   MOTION::WireVector input_0_arith, input_1_arith;
   if (options.my_id == 0) {
     auto pair = gate_factory_arith.make_arithmetic_64_input_gate_my(options.my_id, 1);
+    input_promise = std::move(pair.first);
     input_0_arith = std::move(pair.second);
+    input_1_arith = gate_factory_arith.make_arithmetic_64_input_gate_other(1 - options.my_id, 1);
   } else {
     input_0_arith = gate_factory_arith.make_arithmetic_64_input_gate_other(1 - options.my_id, 1);
+    auto pair = gate_factory_arith.make_arithmetic_64_input_gate_my(options.my_id, 1);
+    input_promise = std::move(pair.first);
+    input_1_arith = std::move(pair.second);
   }
 
   auto output = gate_factory_arith.make_unary_gate(
@@ -238,7 +243,7 @@ void print_stats(const Options& options,
     obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
     std::cout << obj << "\n";
   } else {
-    std::cout << MOTION::Statistics::print_stats("millionaires_problem", run_time_stats,
+    std::cout << MOTION::Statistics::print_stats("DPF Gate", run_time_stats,
                                                  comm_stats);
   }
 }

@@ -98,6 +98,10 @@ add_library(motion
         wire/constant_wire.cpp
         wire/boolean_gmw_wire.cpp
         wire/wire.cpp
+        fss/aes.cpp
+        fss/fss_uint8.cpp
+        fss/fss_uint16.cpp
+        fss/fss_uint64.cpp
         )
 add_library(MOTION::motion ALIAS motion)
 

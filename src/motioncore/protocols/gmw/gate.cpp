@@ -38,7 +38,9 @@
 #include <omp.h>
 #include "wire.h"
 
-#include "utility/fss.h"
+#include "fss/fss_uint8.h"     // FSS functions
+#include "fss/fss_uint16.h"     // FSS functions
+#include "fss/fss_uint64.h"     // FSS functions
 
 namespace MOTION::proto::gmw {
 
@@ -994,9 +996,9 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     // Generate additive share of the random numbers for revelation later.
     // Local operation.
 #pragma omp for
-    for (int i = 0; i < num_simd; ++i) {
+    for (uint64_t i = 0; i < num_simd; ++i) {
       T sum = 0;
-      for (int j = 0; j < num_bits; ++j) {
+      for (uint64_t j = 0; j < num_bits; ++j) {
         T one = 1;
         sum += ((T)(one << j)) * (T)(random_bits_arith_[i * num_bits + j]);
       }
@@ -1022,7 +1024,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_online() {
   gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
   std::vector<T> a = share_futures_[1 - my_id].get();
 #pragma omp for
-  for (int i = 0; i < num_simd; ++i) {
+  for (uint64_t i = 0; i < num_simd; ++i) {
     a[i] += input_plus_random[i];
   }
   // ------ compute the hamming distance --------------------
@@ -1031,7 +1033,7 @@ void ArithmeticGMWHAMGate<T>::evaluate_online() {
 #pragma omp for
   for (std::size_t i = 0; i < num_simd; ++i) {
     out[i] = 0;
-    for (int j = 0; j < num_bits; ++j) {
+    for (uint64_t j = 0; j < num_bits; ++j) {
       T a_bit = (a[i] >> j) & 1;
       out[i] += (T)(my_id * a_bit) + random_bits_arith_[i * num_bits + j] - 
         2 * a_bit * random_bits_arith_[i * num_bits + j];
@@ -1053,8 +1055,6 @@ ArithmeticGMWDPFGate<T>::ArithmeticGMWDPFGate(std::size_t gate_id, GMWProvider& 
       gmw_provider_(gmw_provider)
           { 
             const auto num_simd = this->input_->get_num_simd();
-            auto num_bits = sizeof(T) * 8;
-            const auto my_id = gmw_provider_.get_my_id();
             share_futures_ = gmw_provider_.register_for_ints_messages<T>(
               this->gate_id_, num_simd);
           }
@@ -1063,8 +1063,30 @@ ArithmeticGMWDPFGate<T>::ArithmeticGMWDPFGate(std::size_t gate_id, GMWProvider& 
 template <typename T>
 void ArithmeticGMWDPFGate<T>::evaluate_setup() {
     // auto num_simd = this->input_->get_num_simd();
-    // auto num_bits = sizeof(T) * 8;
+    auto num_bits = sizeof(T) * 8;
     // const auto my_id = gmw_provider_.get_my_id();
+
+    T alpha=2; 
+
+  
+  // Allocate empty keys (k0, k1)
+  k0_8[KEY_LEN_8]={0}, k1_8[KEY_LEN_8]={0};
+  k0_16[KEY_LEN_16]={0}, k1_16[KEY_LEN_16]={0};
+  k0_64[KEY_LEN_64]={0}, k1_64[KEY_LEN_64]={0};
+
+  if(num_bits == 8){
+    DPF_gen_8(alpha, k0_8, k1_8);
+  }
+
+  if(num_bits == 16){
+      // Allocate empty keys (k0, k1)
+      DPF_gen_16(alpha, k0_16, k1_16);
+  }
+  if(num_bits == 64){
+      // Allocate empty keys (k0, k1)
+      DPF_gen_64(alpha, k0_64, k1_64);
+  }
+
     this->set_setup_ready();
 }
 
@@ -1073,9 +1095,14 @@ void ArithmeticGMWDPFGate<T>::evaluate_online() {
   this->input_->wait_online();
   this->wait_setup();
   auto num_simd = this->input_->get_num_simd();
-  // auto num_bits = sizeof(T) * 8;
   const auto my_id = gmw_provider_.get_my_id();
   const auto& x = this->input_->get_share();
+
+  // ------ create keys for eval  ---------------------------
+  // (to do: see how to push this to preprocessing)
+  
+  auto num_bits = sizeof(T) * 8;
+
   // ------ reconstruct input + R ---------------------------
   std::vector<T> input_plus_random(num_simd);
   #pragma omp for
@@ -1085,24 +1112,79 @@ void ArithmeticGMWDPFGate<T>::evaluate_online() {
   gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
   std::vector<T> a = share_futures_[1 - my_id].get();
   #pragma omp for
-  for (int i = 0; i < num_simd; ++i) {
+  for (uint64_t i = 0; i < num_simd; ++i) {
     a[i] += input_plus_random[i];
   }
-  // ------ (to do)Eval DPF --------------------
-  // set output
-  auto& wire_o = this->output_[0];
 
+
+  // ------ Eval DPF --------------------
+  
+  if(num_bits == 8){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint8_t x = a[i];
+      a[i] = DPF_eval_8(0, k0_8, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint8_t x = a[i];
+        a[i] = DPF_eval_8(1, k1_8, x);
+      }
+    }
+  }
+  if(num_bits == 16){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint16_t x = a[i];
+      a[i] = DPF_eval_16(0, k0_16, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint16_t x = a[i];
+        a[i] = DPF_eval_16(1, k1_16, x);
+      }
+    }
+  }
+  if(num_bits == 64){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint64_t x = a[i];
+      a[i] = DPF_eval_64(0, k0_64, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint64_t x = a[i];
+        a[i] = DPF_eval_64(1, k1_64, x);
+      }
+    }
+  }
+  
+  
+  // ------ set outputs --------------------
+  auto& wire_o = this->output_[0];
   auto& out_share = wire_o->get_share();
   out_share.Resize(num_simd, true);
-  // (To do) Check how to parllelize this step
   #pragma omp for
   for (std::size_t i = 0; i < num_simd; ++i) {
-    if(a[i] + input_plus_random[i]!=0){
+    std::cout<<"dpf res"<<a[i]<< std::endl;
+    if(a[i]% 2 == 0){
      out_share.Set(1, i);
+     
+    }
+    else{
+     out_share.Set(0, i);
     }
   }
   wire_o->set_online_ready();
-
 }
 
 template class ArithmeticGMWDPFGate<std::uint8_t>;
