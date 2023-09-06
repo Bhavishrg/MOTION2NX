@@ -1175,7 +1175,6 @@ void ArithmeticGMWDPFGate<T>::evaluate_online() {
   out_share.Resize(num_simd, true);
   #pragma omp for
   for (std::size_t i = 0; i < num_simd; ++i) {
-    std::cout<<"dpf res"<<a[i]<< std::endl;
     if(a[i]% 2 == 0){
      out_share.Set(1, i);
      
