@@ -12,6 +12,7 @@ add_subdirectory(sha256)
 add_subdirectory(triple_generator)
 add_subdirectory(test_dpf)
 add_subdirectory(exact_pm)
+add_subdirectory(approx_pm)
 
 
 if (MOTION_BUILD_ONNX_ADAPTER)

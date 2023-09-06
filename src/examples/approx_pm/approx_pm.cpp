@@ -198,7 +198,7 @@ auto make_dpf_in_wire(const Options& options) {
 
   auto wire = std::make_shared<ArithmeticGMWWire<uint8_t>>(num_simd);
   std::vector<MOTION::NewWireP> in;
-  std::vector<uint8_t> x(num_simd, 2*num_wires);
+  std::vector<uint8_t> x(num_simd, 1);
 
   wire->get_share() = x;
   wire->set_online_ready();
@@ -207,13 +207,13 @@ auto make_dpf_in_wire(const Options& options) {
   return in;
 }
 
-auto make_ham_in_wire(const Options& options) {
+auto make_dcf_in_wire(const Options& options) {
   
   auto num_simd = (options.text_size - options.pattern_size + 1);
 
-  auto wire = std::make_shared<ArithmeticGMWWire<uint32_t>>(num_simd);
+  auto wire = std::make_shared<ArithmeticGMWWire<uint8_t>>(num_simd);
   std::vector<MOTION::NewWireP> in;
-  std::vector<uint32_t> x(num_simd, 1);
+  std::vector<uint8_t> x(num_simd, 1);
 
   wire->get_share() = x;
   wire->set_online_ready();
@@ -234,9 +234,9 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireV
   auto& gate_factory_arith = backend.get_gate_factory(arithmetic_protocol);
   auto& gate_factory_bool = backend.get_gate_factory(boolean_protocol);
 
-  auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, in1);
+  auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::DPFA, in1);
   auto output = gate_factory_arith.make_unary_gate(
-    ENCRYPTO::PrimitiveOperationType::DPF, in2);
+    ENCRYPTO::PrimitiveOperationType::DCF, in2);
   
   backend.run();
 
@@ -267,7 +267,7 @@ int main(int argc, char* argv[]) {
   try {
 
     auto in2 = make_dpf_in_wire(*options);
-    auto in1 = make_ham_in_wire(*options);
+    auto in1 = make_dcf_in_wire(*options);
 
     auto comm_layer = setup_communication(*options);
     auto logger = std::make_shared<MOTION::Logger>(options->my_id,

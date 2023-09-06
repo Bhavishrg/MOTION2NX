@@ -1380,17 +1380,17 @@ void ArithmeticGMWDPFAGate<T>::evaluate_online() {
   auto num_bits = sizeof(T) * 8;
 
   // ------ reconstruct input + R ---------------------------
-  std::vector<T> input_plus_random(num_simd);
-  #pragma omp for
-  for (std::size_t i = 0; i < num_simd; ++i) {
-    input_plus_random[i] = x[i]; // + randoms_[i];
-  }
-  gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
-  std::vector<T> a = share_futures_[1 - my_id].get();
-  #pragma omp for
-  for (uint64_t i = 0; i < num_simd; ++i) {
-    a[i] += input_plus_random[i];
-  }
+  // std::vector<T> input_plus_random(num_simd);
+  // #pragma omp for
+  // for (std::size_t i = 0; i < num_simd; ++i) {
+  //   input_plus_random[i] = x[i]; // + randoms_[i];
+  // }
+  // gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
+  // std::vector<T> a = share_futures_[1 - my_id].get();
+  // #pragma omp for
+  // for (uint64_t i = 0; i < num_simd; ++i) {
+  //   a[i] += input_plus_random[i];
+  // }
 
 
   // ------ Eval DPF --------------------
@@ -1402,15 +1402,13 @@ void ArithmeticGMWDPFAGate<T>::evaluate_online() {
     if(my_id==0){
     #pragma omp for
     for (uint64_t i = 0; i < num_simd; ++i) {
-      uint8_t x = a[i];
-      out[i] = DPF_eval_8(0, k0_8, x);
+      out[i] = DPF_eval_8(0, k0_8, x[i]);
     }
     }
     else{
       #pragma omp for
       for (uint64_t i = 0; i < num_simd; ++i) {
-        uint8_t x = a[i];
-        out[i] = DPF_eval_8(1, k1_8, x);
+        out[i] = DPF_eval_8(1, k1_8, x[i]);
       }
     }
   }
@@ -1418,15 +1416,13 @@ void ArithmeticGMWDPFAGate<T>::evaluate_online() {
     if(my_id==0){
     #pragma omp for
     for (uint64_t i = 0; i < num_simd; ++i) {
-      uint16_t x = a[i];
-      out[i] = DPF_eval_16(0, k0_16, x);
+      out[i] = DPF_eval_16(0, k0_16, x[i]);
     }
     }
     else{
       #pragma omp for
       for (uint64_t i = 0; i < num_simd; ++i) {
-        uint16_t x = a[i];
-        out[i] = DPF_eval_16(1, k1_16, x);
+        out[i] = DPF_eval_16(1, k1_16, x[i]);
       }
     }
   }
@@ -1434,15 +1430,13 @@ void ArithmeticGMWDPFAGate<T>::evaluate_online() {
     if(my_id==0){
     #pragma omp for
     for (uint64_t i = 0; i < num_simd; ++i) {
-      uint64_t x = a[i];
-      out[i] = DPF_eval_64(0, k0_64, x);
+      out[i] = DPF_eval_64(0, k0_64, x[i]);
     }
     }
     else{
       #pragma omp for
       for (uint64_t i = 0; i < num_simd; ++i) {
-        uint64_t x = a[i];
-        out[i] = DPF_eval_64(1, k1_64, x);
+        out[i] = DPF_eval_64(1, k1_64, x[i]);
       }
     }
   }
