@@ -249,11 +249,13 @@ class GMWProvider : public GateFactory,
   WireVector make_mul_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_sqr_gate(const WireVector& in_a);
   WireVector make_ham_gate(const WireVector& in_a);
+  WireVector make_dpfa_gate(const WireVector& in_a);
   template <template <typename> class BinaryGate, typename T>
   WireVector make_arithmetic_boolean_unary_gate(const NewWireP& in_a);
   template <template <typename> class BinaryGate>
   WireVector make_arithmetic_boolean_unary_gate(const WireVector& in_a);
   WireVector make_dpf_gate(const WireVector& in_a);
+  WireVector make_dcf_gate(const WireVector& in_a);
   template <typename T>
   WireVector basic_make_convert_to_arithmetic_gmw_gate(BooleanGMWWireVector&& in_a);
   WireVector make_convert_to_arithmetic_gmw_gate(BooleanGMWWireVector&& in_a);

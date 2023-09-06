@@ -345,8 +345,12 @@ WireVector GMWProvider::make_unary_gate(ENCRYPTO::PrimitiveOperationType op,
       return make_sqr_gate(in_a);
     case ENCRYPTO::PrimitiveOperationType::HAM:
       return make_ham_gate(in_a);
+    case ENCRYPTO::PrimitiveOperationType::DPFA:
+      return make_dpfa_gate(in_a);
     case ENCRYPTO::PrimitiveOperationType::DPF:
       return make_dpf_gate(in_a);
+    case ENCRYPTO::PrimitiveOperationType::DCF:
+      return make_dcf_gate(in_a);
     default:
       throw std::logic_error(
           fmt::format("GMW does not support the unary operation {}", ToString(op)));
@@ -613,6 +617,10 @@ WireVector GMWProvider::make_ham_gate(const WireVector& in) {
   return make_arithmetic_unary_gate<ArithmeticGMWHAMGate>(in);
 }
 
+WireVector GMWProvider::make_dpfa_gate(const WireVector& in) {
+  return make_arithmetic_unary_gate<ArithmeticGMWDPFAGate>(in);
+}
+
 template <template <typename> class UnaryGate, typename T>
 WireVector GMWProvider::make_arithmetic_boolean_unary_gate(const NewWireP& in_a) {
   BooleanGMWWireVector output;
@@ -644,6 +652,10 @@ WireVector GMWProvider::make_arithmetic_boolean_unary_gate(const WireVector& in_
 
 WireVector GMWProvider::make_dpf_gate(const WireVector& in) {
   return make_arithmetic_boolean_unary_gate<ArithmeticGMWDPFGate>(in);
+}
+
+WireVector GMWProvider::make_dcf_gate(const WireVector& in) {
+  return make_arithmetic_boolean_unary_gate<ArithmeticGMWDCFGate>(in);
 }
 
 template <typename T>

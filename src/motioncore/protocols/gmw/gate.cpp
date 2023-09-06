@@ -1097,10 +1097,6 @@ void ArithmeticGMWDPFGate<T>::evaluate_online() {
   auto num_simd = this->input_->get_num_simd();
   const auto my_id = gmw_provider_.get_my_id();
   const auto& x = this->input_->get_share();
-
-  // ------ create keys for eval  ---------------------------
-  // (to do: see how to push this to preprocessing)
-  
   auto num_bits = sizeof(T) * 8;
 
   // ------ reconstruct input + R ---------------------------
@@ -1190,6 +1186,274 @@ template class ArithmeticGMWDPFGate<std::uint8_t>;
 template class ArithmeticGMWDPFGate<std::uint16_t>;
 template class ArithmeticGMWDPFGate<std::uint32_t>;
 template class ArithmeticGMWDPFGate<std::uint64_t>;
+
+
+template <typename T>
+ArithmeticGMWDCFGate<T>::ArithmeticGMWDCFGate(std::size_t gate_id, GMWProvider& gmw_provider,
+                                              ArithmeticGMWWireP<T>&& in_a)
+    : detail::BasicArithmeticXBooleanGMWUnaryGate<T>(gate_id, gmw_provider, std::move(in_a)),
+      gmw_provider_(gmw_provider)
+          { 
+            const auto num_simd = this->input_->get_num_simd();
+            share_futures_ = gmw_provider_.register_for_ints_messages<T>(
+              this->gate_id_, num_simd);
+          }
+
+
+template <typename T>
+void ArithmeticGMWDCFGate<T>::evaluate_setup() {
+    // auto num_simd = this->input_->get_num_simd();
+    auto num_bits = sizeof(T) * 8;
+    // const auto my_id = gmw_provider_.get_my_id();
+
+    T alpha=2; 
+
+  
+  // Allocate empty keys (k0, k1)
+  k0_8[KEY_LEN_8]={0}, k1_8[KEY_LEN_8]={0};
+  k0_16[KEY_LEN_16]={0}, k1_16[KEY_LEN_16]={0};
+  k0_64[KEY_LEN_64]={0}, k1_64[KEY_LEN_64]={0};
+
+  if(num_bits == 8){
+    DCF_gen_8(alpha, k0_8, k1_8);
+  }
+
+  if(num_bits == 16){
+      // Allocate empty keys (k0, k1)
+      DCF_gen_16(alpha, k0_16, k1_16);
+  }
+  if(num_bits == 64){
+      // Allocate empty keys (k0, k1)
+      DCF_gen_64(alpha, k0_64, k1_64);
+  }
+
+    this->set_setup_ready();
+}
+
+template <typename T>
+void ArithmeticGMWDCFGate<T>::evaluate_online() {
+  this->input_->wait_online();
+  this->wait_setup();
+  auto num_simd = this->input_->get_num_simd();
+  const auto my_id = gmw_provider_.get_my_id();
+  const auto& x = this->input_->get_share();
+  auto num_bits = sizeof(T) * 8;
+
+  // ------ reconstruct input + R ---------------------------
+  std::vector<T> input_plus_random(num_simd);
+  #pragma omp for
+  for (std::size_t i = 0; i < num_simd; ++i) {
+    input_plus_random[i] = x[i]; // + randoms_[i];
+  }
+  gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
+  std::vector<T> a = share_futures_[1 - my_id].get();
+  #pragma omp for
+  for (uint64_t i = 0; i < num_simd; ++i) {
+    a[i] += input_plus_random[i];
+  }
+
+
+  // ------ Eval DCF --------------------
+  
+  if(num_bits == 8){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint8_t x = a[i];
+      a[i] = DCF_eval_8(0, k0_8, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint8_t x = a[i];
+        a[i] = DCF_eval_8(1, k1_8, x);
+      }
+    }
+  }
+  if(num_bits == 16){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint16_t x = a[i];
+      a[i] = DCF_eval_16(0, k0_16, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint16_t x = a[i];
+        a[i] = DCF_eval_16(1, k1_16, x);
+      }
+    }
+  }
+  if(num_bits == 64){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint64_t x = a[i];
+      a[i] = DCF_eval_64(0, k0_64, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint64_t x = a[i];
+        a[i] = DCF_eval_64(1, k1_64, x);
+      }
+    }
+  }
+  
+  
+  // ------ set outputs --------------------
+  auto& wire_o = this->output_[0];
+  auto& out_share = wire_o->get_share();
+  out_share.Resize(num_simd, true);
+  #pragma omp for
+  for (std::size_t i = 0; i < num_simd; ++i) {
+    if(a[i]% 2 == 0){
+     out_share.Set(1, i);
+     
+    }
+    else{
+     out_share.Set(0, i);
+    }
+  }
+  wire_o->set_online_ready();
+}
+
+template class ArithmeticGMWDCFGate<std::uint8_t>;
+template class ArithmeticGMWDCFGate<std::uint16_t>;
+template class ArithmeticGMWDCFGate<std::uint32_t>;
+template class ArithmeticGMWDCFGate<std::uint64_t>;
+
+
+
+template <typename T>
+ArithmeticGMWDPFAGate<T>::ArithmeticGMWDPFAGate(std::size_t gate_id, GMWProvider& gmw_provider,
+                                              ArithmeticGMWWireP<T>&& in_a)
+    : detail::BasicArithmeticGMWUnaryGate<T>(gate_id, gmw_provider, std::move(in_a)),
+      gmw_provider_(gmw_provider)
+          {
+            const auto num_simd = this->input_->get_num_simd();
+            share_futures_ = gmw_provider_.register_for_ints_messages<T>(
+              this->gate_id_, num_simd);
+          }
+
+template <typename T>
+void ArithmeticGMWDPFAGate<T>::evaluate_setup() {
+    // auto num_simd = this->input_->get_num_simd();
+    auto num_bits = sizeof(T) * 8;
+    // const auto my_id = gmw_provider_.get_my_id();
+
+    T alpha=2; 
+
+  
+  // Allocate empty keys (k0, k1)
+  k0_8[KEY_LEN_8]={0}, k1_8[KEY_LEN_8]={0};
+  k0_16[KEY_LEN_16]={0}, k1_16[KEY_LEN_16]={0};
+  k0_64[KEY_LEN_64]={0}, k1_64[KEY_LEN_64]={0};
+
+  if(num_bits == 8){
+    DPF_gen_8(alpha, k0_8, k1_8);
+  }
+
+  if(num_bits == 16){
+      // Allocate empty keys (k0, k1)
+      DPF_gen_16(alpha, k0_16, k1_16);
+  }
+  if(num_bits == 64){
+      // Allocate empty keys (k0, k1)
+      DPF_gen_64(alpha, k0_64, k1_64);
+  }
+
+  this->set_setup_ready();
+}
+
+template <typename T>
+void ArithmeticGMWDPFAGate<T>::evaluate_online() {
+  this->input_->wait_online();
+  this->wait_setup();
+  auto num_simd = this->input_->get_num_simd();
+  const auto my_id = gmw_provider_.get_my_id();
+  const auto& x = this->input_->get_share();
+  auto num_bits = sizeof(T) * 8;
+
+  // ------ reconstruct input + R ---------------------------
+  std::vector<T> input_plus_random(num_simd);
+  #pragma omp for
+  for (std::size_t i = 0; i < num_simd; ++i) {
+    input_plus_random[i] = x[i]; // + randoms_[i];
+  }
+  gmw_provider_.send_ints_message(1 - my_id, this->gate_id_, input_plus_random);
+  std::vector<T> a = share_futures_[1 - my_id].get();
+  #pragma omp for
+  for (uint64_t i = 0; i < num_simd; ++i) {
+    a[i] += input_plus_random[i];
+  }
+
+
+  // ------ Eval DPF --------------------
+  // ------ set outputs --------------------
+  auto& out = this->output_->get_share();
+  out.resize(num_simd);
+  
+  if(num_bits == 8){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint8_t x = a[i];
+      out[i] = DPF_eval_8(0, k0_8, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint8_t x = a[i];
+        out[i] = DPF_eval_8(1, k1_8, x);
+      }
+    }
+  }
+  if(num_bits == 16){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint16_t x = a[i];
+      out[i] = DPF_eval_16(0, k0_16, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint16_t x = a[i];
+        out[i] = DPF_eval_16(1, k1_16, x);
+      }
+    }
+  }
+  if(num_bits == 64){
+    if(my_id==0){
+    #pragma omp for
+    for (uint64_t i = 0; i < num_simd; ++i) {
+      uint64_t x = a[i];
+      out[i] = DPF_eval_64(0, k0_64, x);
+    }
+    }
+    else{
+      #pragma omp for
+      for (uint64_t i = 0; i < num_simd; ++i) {
+        uint64_t x = a[i];
+        out[i] = DPF_eval_64(1, k1_64, x);
+      }
+    }
+  }
+  
+  this->output_->set_online_ready();
+}
+
+template class ArithmeticGMWDPFAGate<std::uint8_t>;
+template class ArithmeticGMWDPFAGate<std::uint16_t>;
+template class ArithmeticGMWDPFAGate<std::uint32_t>;
+template class ArithmeticGMWDPFAGate<std::uint64_t>;
 
 
 }  // namespace MOTION::proto::gmw

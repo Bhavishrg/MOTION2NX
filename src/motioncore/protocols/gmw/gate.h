@@ -408,8 +408,44 @@ class ArithmeticGMWDPFGate : public detail::BasicArithmeticXBooleanGMWUnaryGate<
 
  private:
   using is_enabled_ = ENCRYPTO::is_unsigned_int_t<T>;
-  std::unique_ptr<ENCRYPTO::ObliviousTransfer::ACOTSender<T>> ot_sender_;
-  std::unique_ptr<ENCRYPTO::ObliviousTransfer::ACOTReceiver<T>> ot_receiver_;
+  GMWProvider& gmw_provider_;
+  std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
+  std::vector<T> randoms_;
+  uint8_t k0_8[KEY_LEN_8], k1_8[KEY_LEN_8];
+  uint8_t k0_16[KEY_LEN_16], k1_16[KEY_LEN_16];
+  uint8_t k0_64[KEY_LEN_64], k1_64[KEY_LEN_64];
+};
+
+template <typename T>
+class ArithmeticGMWDCFGate : public detail::BasicArithmeticXBooleanGMWUnaryGate<T> {
+ public:
+  ArithmeticGMWDCFGate(std::size_t gate_id, GMWProvider&, ArithmeticGMWWireP<T>&&);
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+
+ private:
+  using is_enabled_ = ENCRYPTO::is_unsigned_int_t<T>;
+  GMWProvider& gmw_provider_;
+  std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
+  std::vector<T> randoms_;
+  uint8_t k0_8[KEY_LEN_8], k1_8[KEY_LEN_8];
+  uint8_t k0_16[KEY_LEN_16], k1_16[KEY_LEN_16];
+  uint8_t k0_64[KEY_LEN_64], k1_64[KEY_LEN_64];
+};
+
+template <typename T>
+class ArithmeticGMWDPFAGate : public detail::BasicArithmeticGMWUnaryGate<T> {
+ public:
+  ArithmeticGMWDPFAGate(std::size_t gate_id, GMWProvider&, ArithmeticGMWWireP<T>&&);
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+
+ private:
+  using is_enabled_ = ENCRYPTO::is_unsigned_int_t<T>;
   GMWProvider& gmw_provider_;
   std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
   std::vector<T> randoms_;
