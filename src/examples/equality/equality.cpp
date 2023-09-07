@@ -66,9 +66,7 @@ struct Options {
   bool sync_between_setup_and_online;
   MOTION::MPCProtocol arithmetic_protocol;
   MOTION::MPCProtocol boolean_protocol;
-  std::uint64_t pattern_size;
-  std::uint64_t text_size;
-  // std::uint64_t ring_size;
+  std::uint64_t ring_size;
   std::size_t my_id;
   MOTION::Communication::tcp_parties_config tcp_config;
   bool no_run = false;
@@ -86,9 +84,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
      "(party id, IP, port), e.g., --party 1,127.0.0.1,7777")
     ("threads", po::value<std::size_t>()->default_value(0), "number of threads to use for gate evaluation")
     ("json", po::bool_switch()->default_value(false), "output data in JSON format")
-    ("pattern-size", po::value<std::uint64_t>()->required(), "size of pattern")
-    ("text-size", po::value<std::uint64_t>()->required(), "size of text")
-    // ("ring-size", po::value<std::size_t>()->default_value(16), "size of the ring")
+    ("ring-size", po::value<std::size_t>()->default_value(16), "size of the ring")
     ("repetitions", po::value<std::size_t>()->default_value(1), "number of repetitions")
     ("num-simd", po::value<std::size_t>()->default_value(1), "number of SIMD values")
     ("sync-between-setup-and-online", po::bool_switch()->default_value(false),
@@ -127,14 +123,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticGMW;
   options.boolean_protocol = MOTION::MPCProtocol::BooleanGMW;
   
-  
-  auto pattern_size = vm["pattern-size"].as<std::uint64_t>();
-  options.pattern_size = vm["pattern-size"].as<std::uint64_t>();
-  // options.ring_size = vm["ring-size"].as<std::uint64_t>();
-
-  auto text_size = vm["text-size"].as<std::uint64_t>();
-  options.text_size = text_size;
-  assert(pattern_size < text_size);
+  options.ring_size = vm["ring-size"].as<std::uint64_t>();
 
   const auto parse_party_argument =
       [](const auto& s) -> std::pair<std::size_t, MOTION::Communication::tcp_connection_config> {
@@ -191,39 +180,62 @@ std::vector<uint64_t> convert_to_binary(uint64_t x) {
 }
 
 
-auto make_dpf_in_wire(const Options& options) {
+auto make_ham_wire(const Options& options) {
   
-  auto num_simd = (options.text_size - options.pattern_size + 1);
-  auto num_wires = options.pattern_size;
+  auto num_simd = options.num_simd;
+  auto ring_size = options.ring_size;
+  if(ring_size == 8){
+    auto wire = std::make_shared<ArithmeticGMWWire<uint8_t>>(num_simd);
+    std::vector<MOTION::NewWireP> in;
+    std::vector<uint8_t> x(num_simd, 5);
 
-  auto wire = std::make_shared<ArithmeticGMWWire<uint8_t>>(num_simd);
-  std::vector<MOTION::NewWireP> in;
-  std::vector<uint8_t> x(num_simd, 2*num_wires);
+    wire->get_share() = x;
+    wire->set_online_ready();
+    in.push_back(wire);
+    return in;
+  }
 
-  wire->get_share() = x;
-  wire->set_online_ready();
+  if(ring_size == 16){
+    auto wire = std::make_shared<ArithmeticGMWWire<uint16_t>>(num_simd);
+    std::vector<MOTION::NewWireP> in;
+    std::vector<uint16_t> x(num_simd, 5);
 
-  in.push_back(wire);
-  return in;
+    wire->get_share() = x;
+    wire->set_online_ready();
+    in.push_back(wire);
+    return in;
+  }
+
+  if(ring_size == 256){
+    auto wire = std::make_shared<ArithmeticGMWWire<uint32_t>>(num_simd);
+    std::vector<MOTION::NewWireP> in;
+
+    std::vector<uint32_t> x(num_simd, 5);
+
+    wire->get_share() = x;
+    wire->set_online_ready();
+    in.push_back(wire);
+    return in;
+  }
+
+  if(ring_size == 64){
+    auto wire = std::make_shared<ArithmeticGMWWire<uint64_t>>(num_simd);
+    std::vector<MOTION::NewWireP> in;
+    
+    std::vector<uint64_t> x(num_simd, 5);
+
+    wire->get_share() = x;
+    wire->set_online_ready();
+    in.push_back(wire);
+    return in;
+  }
+
 }
 
-auto make_ham_in_wire(const Options& options) {
-  
-  auto num_simd = (options.text_size - options.pattern_size + 1);
-
-  auto wire = std::make_shared<ArithmeticGMWWire<uint32_t>>(num_simd);
-  std::vector<MOTION::NewWireP> in;
-  std::vector<uint32_t> x(num_simd, 1);
-
-  wire->get_share() = x;
-  wire->set_online_ready();
-
-  in.push_back(wire);
-  return in;
-}
 
 
-void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireVector in1, WireVector in2) {
+
+void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireVector in) {
 
   if (options.no_run) {
     return;
@@ -234,10 +246,10 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend, WireV
   auto& gate_factory_arith = backend.get_gate_factory(arithmetic_protocol);
   auto& gate_factory_bool = backend.get_gate_factory(boolean_protocol);
 
-  auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, in1);
-  auto output = gate_factory_arith.make_unary_gate(
-    ENCRYPTO::PrimitiveOperationType::DPF, in2);
+  auto output1 = gate_factory_bool.make_unary_gate(ENCRYPTO::PrimitiveOperationType::HAM, in);
   
+  auto output = gate_factory_arith.make_unary_gate(ENCRYPTO::PrimitiveOperationType::AES, in);
+
   backend.run();
 
 }
@@ -266,8 +278,8 @@ int main(int argc, char* argv[]) {
   
   try {
 
-    auto in2 = make_dpf_in_wire(*options);
-    auto in1 = make_ham_in_wire(*options);
+    // auto in = make_dpf_in_wire(*options);
+    auto in = make_ham_wire(*options);
 
     auto comm_layer = setup_communication(*options);
     auto logger = std::make_shared<MOTION::Logger>(options->my_id,
@@ -278,7 +290,7 @@ int main(int argc, char* argv[]) {
     for (std::size_t i = 0; i < options->num_repetitions; ++i) {
       MOTION::TwoPartyBackend backend(*comm_layer, options->threads,
                                       options->sync_between_setup_and_online, logger);
-      run_circuit(*options, backend, in1, in2);
+      run_circuit(*options, backend, in);
       comm_layer->sync();
       comm_stats.add(comm_layer->get_transport_statistics());
       comm_layer->reset_transport_statistics();

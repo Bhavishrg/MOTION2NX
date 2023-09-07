@@ -255,6 +255,7 @@ class GMWProvider : public GateFactory,
   template <template <typename> class BinaryGate>
   WireVector make_arithmetic_boolean_unary_gate(const WireVector& in_a);
   WireVector make_dpf_gate(const WireVector& in_a);
+  WireVector make_aesbench_gate(const WireVector& in_a);
   WireVector make_dcf_gate(const WireVector& in_a);
   template <typename T>
   WireVector basic_make_convert_to_arithmetic_gmw_gate(BooleanGMWWireVector&& in_a);

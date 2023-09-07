@@ -42,8 +42,18 @@
 #include "communication/tcp_transport.h"
 #include "statistics/analysis.h"
 #include "utility/logger.h"
+#include "protocols/gmw/wire.h"
+#include "protocols/gmw/gate.h"
+#include "protocols/gmw/gmw_provider.h"
+#include "utility/bit_vector.h"
+#include "protocols/gmw/gmw_provider.cpp"
+#include "wire/new_wire.h"
+#include "utility/helpers.h"
 
 namespace po = boost::program_options;
+using namespace MOTION::proto::gmw;
+using NewWire = MOTION::NewWire;
+using WireVector = std::vector<std::shared_ptr<NewWire>>;
 
 struct Options {
   std::size_t threads;
@@ -53,7 +63,7 @@ struct Options {
   bool sync_between_setup_and_online;
   MOTION::MPCProtocol arithmetic_protocol;
   MOTION::MPCProtocol boolean_protocol;
-  std::uint64_t input_value;
+  std::uint64_t ring_size;
   std::size_t my_id;
   MOTION::Communication::tcp_parties_config tcp_config;
   bool no_run = false;
@@ -71,9 +81,7 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
      "(party id, IP, port), e.g., --party 1,127.0.0.1,7777")
     ("threads", po::value<std::size_t>()->default_value(0), "number of threads to use for gate evaluation")
     ("json", po::bool_switch()->default_value(false), "output data in JSON format")
-    ("arithmetic-protocol", po::value<std::string>()->required(), "2PC protocol (GMW or BEAVY)")
-    ("boolean-protocol", po::value<std::string>()->required(), "2PC protocol (Yao, GMW or BEAVY)")
-    ("input-value", po::value<std::uint64_t>()->required(), "input value for Yao's Millionaires' Problem")
+    ("ring-size", po::value<std::size_t>()->default_value(16), "size of the ring")
     ("repetitions", po::value<std::size_t>()->default_value(1), "number of repetitions")
     ("num-simd", po::value<std::size_t>()->default_value(1), "number of SIMD values")
     ("sync-between-setup-and-online", po::bool_switch()->default_value(false),
@@ -108,39 +116,17 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   options.num_simd = vm["num-simd"].as<std::size_t>();
   options.sync_between_setup_and_online = vm["sync-between-setup-and-online"].as<bool>();
   options.no_run = vm["no-run"].as<bool>();
-  if (options.my_id > 1) {
-    std::cerr << "my-id must be one of 0 and 1\n";
-    return std::nullopt;
-  }
 
-  auto arithmetic_protocol = vm["arithmetic-protocol"].as<std::string>();
-  boost::algorithm::to_lower(arithmetic_protocol);
-  if (arithmetic_protocol == "gmw") {
-    options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticGMW;
-  } else if (arithmetic_protocol == "beavy") {
-    options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticBEAVY;
-  } else {
-    std::cerr << "invalid protocol: " << arithmetic_protocol << "\n";
-    return std::nullopt;
-  }
-  auto boolean_protocol = vm["boolean-protocol"].as<std::string>();
-  boost::algorithm::to_lower(boolean_protocol);
-  if (boolean_protocol == "yao") {
-    options.boolean_protocol = MOTION::MPCProtocol::Yao;
-  } else if (boolean_protocol == "gmw") {
-    options.boolean_protocol = MOTION::MPCProtocol::BooleanGMW;
-  } else if (boolean_protocol == "beavy") {
-    options.boolean_protocol = MOTION::MPCProtocol::BooleanBEAVY;
-  } else {
-    std::cerr << "invalid protocol: " << boolean_protocol << "\n";
-    return std::nullopt;
-  }
+  options.arithmetic_protocol = MOTION::MPCProtocol::ArithmeticGMW;
+  options.boolean_protocol = MOTION::MPCProtocol::BooleanGMW;
+  
 
-  options.input_value = vm["input-value"].as<std::uint64_t>();
+  options.ring_size = vm["ring-size"].as<std::uint64_t>();
+
 
   const auto parse_party_argument =
       [](const auto& s) -> std::pair<std::size_t, MOTION::Communication::tcp_connection_config> {
-    const static std::regex party_argument_re("([01]),([^,]+),(\\d{1,5})");
+    const static std::regex party_argument_re("([012]),([^,]+),(\\d{1,5})");
     std::smatch match;
     if (!std::regex_match(s, match, party_argument_re)) {
       throw std::invalid_argument("invalid party argument");
@@ -172,6 +158,12 @@ std::optional<Options> parse_program_options(int argc, char* argv[]) {
   return options;
 }
 
+
+static std::vector<std::shared_ptr<NewWire>> cast_wires(BooleanGMWWireVector& wires) {
+  return std::vector<std::shared_ptr<NewWire>>(std::begin(wires), std::end(wires));
+}
+
+
 std::unique_ptr<MOTION::Communication::CommunicationLayer> setup_communication(
     const Options& options) {
   MOTION::Communication::TCPSetupHelper helper(options.my_id, options.tcp_config);
@@ -179,55 +171,80 @@ std::unique_ptr<MOTION::Communication::CommunicationLayer> setup_communication(
                                                                      helper.setup_connections());
 }
 
-auto create_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
-  // retrieve the gate factories for the chosen protocols
-  auto& gate_factory_arith = backend.get_gate_factory(options.arithmetic_protocol);
-  auto& gate_factory_bool = backend.get_gate_factory(options.boolean_protocol);
 
-  // share the inputs using the arithmetic protocol
-  // NB: the inputs need to always be specified in the same order:
-  // here we first specify the input of party 0, then that of party 1
-  ENCRYPTO::ReusableFiberPromise<MOTION::IntegerValues<uint8_t>> input_promise;
-  MOTION::WireVector input_0_arith, input_1_arith;
-  if (options.my_id == 0) {
-    auto pair = gate_factory_arith.make_arithmetic_8_input_gate_my(options.my_id, 1);
-    input_promise = std::move(pair.first);
-    input_0_arith = std::move(pair.second);
-    input_1_arith = gate_factory_arith.make_arithmetic_8_input_gate_other(1 - options.my_id, 1);
-  } else {
-    input_0_arith = gate_factory_arith.make_arithmetic_8_input_gate_other(1 - options.my_id, 1);
-    auto pair = gate_factory_arith.make_arithmetic_8_input_gate_my(options.my_id, 1);
-    input_promise = std::move(pair.first);
-    input_1_arith = std::move(pair.second);
-  }
 
-  auto output = gate_factory_arith.make_unary_gate(
-    ENCRYPTO::PrimitiveOperationType::DPF, input_0_arith);
-  auto output_future = gate_factory_bool.make_boolean_output_gate_my(MOTION::ALL_PARTIES, output);
+auto make_boolean_wires(int num_wires){
+  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(1);
 
-  // return promise and future to allow setting inputs and retrieving outputs
-  return std::make_pair(std::move(input_promise), std::move(output_future));
+  auto x = std::make_shared<MOTION::proto::gmw::BooleanGMWWire>(1);
+  auto& x_sec = x->get_share();
+  x_sec = dx;
+  x->set_online_ready();
+
+  auto xx = std::dynamic_pointer_cast<MOTION::NewWire>(x);
+  // Cast to wire vectors.
+  MOTION::WireVector X;
+  
+  for (uint64_t j = 0; j < num_wires; ++j) {
+      X.push_back(xx);
+}
+  return X;
 }
 
-void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend) {
-  // build the circuit and gets promise/future for the input/output
-  auto [input_promise, output_future] = create_circuit(options, backend);
+void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend,  WireVector in1, WireVector in2, WireVector in3, WireVector in4,
+                  WireVector in5, WireVector in6, WireVector in7, WireVector in8) {
 
   if (options.no_run) {
     return;
   }
 
-  // set the promise with our input value
-  input_promise.set_value({options.input_value});
+  MOTION::MPCProtocol arithmetic_protocol = options.arithmetic_protocol;
+  MOTION::MPCProtocol boolean_protocol = options.boolean_protocol;
+  auto& gate_factory_arith = backend.get_gate_factory(arithmetic_protocol);
+  auto& gate_factory_bool = backend.get_gate_factory(boolean_protocol);
+  if(options.ring_size == 8){
+      
+      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in6, in6);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in7, in7);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in8, in8);
 
-  // execute the protocol
+  }
+
+  if(options.ring_size == 16){
+      
+      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in5, in5);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in6, in6);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in7, in7);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in8, in8);
+
+  }
+
+  if(options.ring_size == 64){
+      
+      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in3, in3);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in4, in4);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in5, in5);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in6, in6);
+      auto output5 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in7, in7);
+      auto output6 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in8, in8);
+
+  }
+
+  if(options.ring_size == 256){
+      
+      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in1, in1);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in2, in2);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in3, in3);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in4, in4);
+      auto output5 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in5, in5);
+      auto output6 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in6, in6);
+      auto output7 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in7, in7);
+      auto output8 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in8, in8);
+
+  }
+
   backend.run();
 
-  // retrieve the result from the future
-  auto bvs = output_future.get();
-  bool gt_result = bvs.at(0).Get(0);
-  std::cout << "result" <<gt_result << std::endl;
-  
 }
 
 void print_stats(const Options& options,
@@ -236,26 +253,35 @@ void print_stats(const Options& options,
   if (options.json) {
     auto obj = MOTION::Statistics::to_json("millionaires_problem", run_time_stats, comm_stats);
     obj.emplace("party_id", options.my_id);
-    obj.emplace("arithmetic_protocol", MOTION::ToString(options.arithmetic_protocol));
-    obj.emplace("boolean_protocol", MOTION::ToString(options.boolean_protocol));
-    obj.emplace("simd", options.num_simd);
     obj.emplace("threads", options.threads);
     obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
     std::cout << obj << "\n";
   } else {
-    std::cout << MOTION::Statistics::print_stats("DPF Gate", run_time_stats,
+    std::cout << MOTION::Statistics::print_stats("Equality", run_time_stats,
                                                  comm_stats);
   }
 }
 
 int main(int argc, char* argv[]) {
   auto options = parse_program_options(argc, argv);
+  
   if (!options.has_value()) {
     return EXIT_FAILURE;
   }
-
+  
   try {
+
+    MOTION::WireVector in1 = make_boolean_wires(128);
+    MOTION::WireVector in2 = make_boolean_wires(64);
+    MOTION::WireVector in3 = make_boolean_wires(32);
+    MOTION::WireVector in4 = make_boolean_wires(16);
+    MOTION::WireVector in5 = make_boolean_wires(8);
+    MOTION::WireVector in6 = make_boolean_wires(4);
+    MOTION::WireVector in7 = make_boolean_wires(2);
+    MOTION::WireVector in8 = make_boolean_wires(1);
+
     auto comm_layer = setup_communication(*options);
+    comm_layer->reset_transport_statistics();
     auto logger = std::make_shared<MOTION::Logger>(options->my_id,
                                                    boost::log::trivial::severity_level::trace);
     comm_layer->set_logger(logger);
@@ -264,7 +290,7 @@ int main(int argc, char* argv[]) {
     for (std::size_t i = 0; i < options->num_repetitions; ++i) {
       MOTION::TwoPartyBackend backend(*comm_layer, options->threads,
                                       options->sync_between_setup_and_online, logger);
-      run_circuit(*options, backend);
+      run_circuit(*options, backend, in1, in2, in3, in4, in5, in6, in7, in8);
       comm_layer->sync();
       comm_stats.add(comm_layer->get_transport_statistics());
       comm_layer->reset_transport_statistics();

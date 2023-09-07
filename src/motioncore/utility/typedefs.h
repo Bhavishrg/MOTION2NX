@@ -47,6 +47,7 @@ enum class PrimitiveOperationType : std::uint8_t {
   DPF,  // for arithmetic circuit only
   DCF,  // for arithmetic circuit only
   DPFA,  // for arithmetic circuit only
+  AES,  // for arithmetic circuit only
   // conversions
   A2B,  // for arithmetic GMW only
   A2Y,  // for arithmetic GMW only

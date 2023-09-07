@@ -454,4 +454,21 @@ class ArithmeticGMWDPFAGate : public detail::BasicArithmeticGMWUnaryGate<T> {
   uint8_t k0_64[KEY_LEN_64], k1_64[KEY_LEN_64];
 };
 
+
+template <typename T>
+class ArithmeticGMWAESBENCHGate : public detail::BasicArithmeticXBooleanGMWUnaryGate<T> {
+ public:
+  ArithmeticGMWAESBENCHGate(std::size_t gate_id, GMWProvider&, ArithmeticGMWWireP<T>&&);
+  bool need_setup() const noexcept override { return true; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override;
+  void evaluate_online() override;
+
+ private:
+  using is_enabled_ = ENCRYPTO::is_unsigned_int_t<T>;
+  GMWProvider& gmw_provider_;
+  std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
+  std::vector<T> randoms_;
+};
+
 }  // namespace MOTION::proto::gmw
