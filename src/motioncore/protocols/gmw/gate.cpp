@@ -969,10 +969,22 @@ ArithmeticGMWHAMGate<T>::ArithmeticGMWHAMGate(std::size_t gate_id, GMWProvider& 
             const auto my_id = gmw_provider_.get_my_id();
             auto& ot_provider = gmw_provider_.get_ot_manager().get_provider(1 - my_id);
             if (my_id == 0) {
-              ot_sender_ = ot_provider.RegisterSendACOT<T>(num_bits * num_simd);
+              // benchmark for 256 bits
+              if(num_bits == 32){
+               ot_sender_ = ot_provider.RegisterSendACOT<T>(num_bits * 8 * num_simd);
+              }
+              else{
+                ot_sender_ = ot_provider.RegisterSendACOT<T>(num_bits * num_simd);
+              }
             } else {
               assert(my_id == 1); // Only two parties.
-              ot_receiver_ = ot_provider.RegisterReceiveACOT<T>(num_bits * num_simd);
+              // benchmark for 256 bits
+              if(num_bits == 32){
+               ot_receiver_ = ot_provider.RegisterReceiveACOT<T>(num_bits * 8 * num_simd);
+              }
+              else{
+                ot_receiver_ = ot_provider.RegisterReceiveACOT<T>(num_bits * num_simd);
+              }
             }
             share_futures_ = gmw_provider_.register_for_ints_messages<T>(
               this->gate_id_, num_simd);
@@ -983,41 +995,87 @@ void ArithmeticGMWHAMGate<T>::evaluate_setup() {
     auto num_simd = this->input_->get_num_simd();
     auto num_bits = sizeof(T) * 8;
     const auto my_id = gmw_provider_.get_my_id();
-    auto random_bits = ENCRYPTO::BitVector<>::RandomSeeded(num_simd * num_bits, this->gate_id_ * my_id); // Seeded for testing
-    // ------ Bit2A to generate the arithmetic shares of random_bits --------//
-    if (ot_sender_ != nullptr) {
-      std::vector<T> correlations(num_bits * num_simd, 0);
-#pragma omp for
-      for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
-        if (random_bits.Get(j)) {
-          correlations[j] = 1;
+
+    // benchmark for 256 bits
+    if(num_bits == 32){
+      auto random_bits = ENCRYPTO::BitVector<>::RandomSeeded(num_simd * num_bits * 8, this->gate_id_ * my_id); // Seeded for testing
+      // ------ Bit2A to generate the arithmetic shares of random_bits --------//
+      if (ot_sender_ != nullptr) {
+        std::vector<T> correlations(num_bits * num_simd * 8, 0);
+        
+        #pragma omp for
+        for (std::size_t j = 0; j < num_bits * num_simd * 8; ++j) {
+          if (random_bits.Get(j)) {
+            correlations[j] = 1;
+          }
+        }
+        ot_sender_->SetCorrelations(std::move(correlations));
+        ot_sender_->SendMessages();
+        ot_sender_->ComputeOutputs();
+        random_bits_arith_ = ot_sender_->GetOutputs();
+        
+        #pragma omp for
+        for (std::size_t j = 0; j < num_bits * num_simd * 8; ++j) {
+          T bit = random_bits.Get(j);
+          random_bits_arith_[j] = bit + 2 * random_bits_arith_[j];
+        }
+      } else {
+        assert(ot_receiver_ != nullptr);
+        ot_receiver_->SetChoices(random_bits);
+        ot_receiver_->SendCorrections();
+        ot_receiver_->ComputeOutputs();
+        random_bits_arith_ = ot_receiver_->GetOutputs();
+
+        #pragma omp for
+        for (std::size_t j = 0; j < num_bits * num_simd * 4; ++j) {
+          T bit = random_bits.Get(j);
+          random_bits_arith_[j] = bit - 2 * random_bits_arith_[j];
         }
       }
-      ot_sender_->SetCorrelations(std::move(correlations));
-      ot_sender_->SendMessages();
-      ot_sender_->ComputeOutputs();
-      random_bits_arith_ = ot_sender_->GetOutputs();
-#pragma omp for
-      for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
-        T bit = random_bits.Get(j);
-        random_bits_arith_[j] = bit + 2 * random_bits_arith_[j];
-      }
-    } else {
-      assert(ot_receiver_ != nullptr);
-      ot_receiver_->SetChoices(random_bits);
-      ot_receiver_->SendCorrections();
-      ot_receiver_->ComputeOutputs();
-      random_bits_arith_ = ot_receiver_->GetOutputs();
-#pragma omp for
-      for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
-        T bit = random_bits.Get(j);
-        random_bits_arith_[j] = bit - 2 * random_bits_arith_[j];
+
+    }
+    else{
+      auto random_bits = ENCRYPTO::BitVector<>::RandomSeeded(num_simd * num_bits, this->gate_id_ * my_id); // Seeded for testing
+      // ------ Bit2A to generate the arithmetic shares of random_bits --------//
+      if (ot_sender_ != nullptr) {
+        std::vector<T> correlations(num_bits * num_simd, 0);
+        
+        #pragma omp for
+        for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
+          if (random_bits.Get(j)) {
+            correlations[j] = 1;
+          }
+        }
+        ot_sender_->SetCorrelations(std::move(correlations));
+        ot_sender_->SendMessages();
+        ot_sender_->ComputeOutputs();
+        random_bits_arith_ = ot_sender_->GetOutputs();
+        
+        #pragma omp for
+        for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
+          T bit = random_bits.Get(j);
+          random_bits_arith_[j] = bit + 2 * random_bits_arith_[j];
+        }
+      } else {
+        assert(ot_receiver_ != nullptr);
+        ot_receiver_->SetChoices(random_bits);
+        ot_receiver_->SendCorrections();
+        ot_receiver_->ComputeOutputs();
+        random_bits_arith_ = ot_receiver_->GetOutputs();
+
+        #pragma omp for
+        for (std::size_t j = 0; j < num_bits * num_simd; ++j) {
+          T bit = random_bits.Get(j);
+          random_bits_arith_[j] = bit - 2 * random_bits_arith_[j];
+        }
       }
     }
+
+    
     // ------ End Bit2A -----------------------------------------------------//
     // Generate additive share of the random numbers for revelation later.
     // Local operation.
-#pragma omp for
+    #pragma omp for
     for (uint64_t i = 0; i < num_simd; ++i) {
       T sum = 0;
       for (uint64_t j = 0; j < num_bits; ++j) {
