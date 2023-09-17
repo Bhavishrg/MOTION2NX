@@ -246,13 +246,13 @@ void print_stats(const Options& options,
                  const MOTION::Statistics::AccumulatedRunTimeStats& run_time_stats,
                  const MOTION::Statistics::AccumulatedCommunicationStats& comm_stats) {
   if (options.json) {
-    auto obj = MOTION::Statistics::to_json("exact_pm", run_time_stats, comm_stats);
+    auto obj = MOTION::Statistics::to_json("Approximate Pattern Matching", run_time_stats, comm_stats);
     obj.emplace("party_id", options.my_id);
     obj.emplace("threads", options.threads);
     obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
     std::cout << obj << "\n";
   } else {
-    std::cout << MOTION::Statistics::print_stats("Exact Pattern Matching", run_time_stats,
+    std::cout << MOTION::Statistics::print_stats("Approximate Pattern Matching", run_time_stats,
                                                  comm_stats);
   }
 }

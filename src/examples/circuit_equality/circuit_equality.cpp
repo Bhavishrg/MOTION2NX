@@ -173,10 +173,12 @@ std::unique_ptr<MOTION::Communication::CommunicationLayer> setup_communication(
 
 
 
-auto make_boolean_wires(int num_wires){
-  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(1);
+auto make_boolean_wires(const Options& options){
+  auto num_simd = options.num_simd;
+  int num_wires = options.ring_size/2;
+  ENCRYPTO::BitVector<> dx = ENCRYPTO::BitVector<>::Random(num_simd);
 
-  auto x = std::make_shared<MOTION::proto::gmw::BooleanGMWWire>(1);
+  auto x = std::make_shared<MOTION::proto::gmw::BooleanGMWWire>(num_simd);
   auto& x_sec = x->get_share();
   x_sec = dx;
   x->set_online_ready();
@@ -191,8 +193,7 @@ auto make_boolean_wires(int num_wires){
   return X;
 }
 
-void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend,  WireVector in1, WireVector in2, WireVector in3, WireVector in4,
-                  WireVector in5, WireVector in6, WireVector in7, WireVector in8) {
+void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend,  WireVector in1) {
 
   if (options.no_run) {
     return;
@@ -204,42 +205,42 @@ void run_circuit(const Options& options, MOTION::TwoPartyBackend& backend,  Wire
   auto& gate_factory_bool = backend.get_gate_factory(boolean_protocol);
   if(options.ring_size == 8){
       
-      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in6, in6);
-      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in7, in7);
-      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in8, in8);
+      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in1, in1);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output1, output1);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output2, output2);
 
   }
 
   if(options.ring_size == 16){
       
-      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in5, in5);
-      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in6, in6);
-      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in7, in7);
-      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in8, in8);
+      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in1, in1);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output1, output1);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output2, output2);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output3, output3);
 
   }
 
   if(options.ring_size == 64){
       
-      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in3, in3);
-      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in4, in4);
-      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in5, in5);
-      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in6, in6);
-      auto output5 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in7, in7);
-      auto output6 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in8, in8);
+      auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in1, in1);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output1, output1);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output2, output2);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output3, output3);
+      auto output5 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output4, output4);
+      auto output6 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output5, output5);
 
   }
 
   if(options.ring_size == 256){
       
       auto output1 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in1, in1);
-      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in2, in2);
-      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in3, in3);
-      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in4, in4);
-      auto output5 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in5, in5);
-      auto output6 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in6, in6);
-      auto output7 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in7, in7);
-      auto output8 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, in8, in8);
+      auto output2 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output1, output1);
+      auto output3 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output2, output2);
+      auto output4 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output3, output3);
+      auto output5 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output4, output4);
+      auto output6 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output5, output5);
+      auto output7 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output6, output5);
+      auto output8 = gate_factory_bool.make_binary_gate(ENCRYPTO::PrimitiveOperationType::AND, output7, output7);
 
   }
 
@@ -251,13 +252,13 @@ void print_stats(const Options& options,
                  const MOTION::Statistics::AccumulatedRunTimeStats& run_time_stats,
                  const MOTION::Statistics::AccumulatedCommunicationStats& comm_stats) {
   if (options.json) {
-    auto obj = MOTION::Statistics::to_json("millionaires_problem", run_time_stats, comm_stats);
+    auto obj = MOTION::Statistics::to_json("Circuit Equality", run_time_stats, comm_stats);
     obj.emplace("party_id", options.my_id);
     obj.emplace("threads", options.threads);
     obj.emplace("sync_between_setup_and_online", options.sync_between_setup_and_online);
     std::cout << obj << "\n";
   } else {
-    std::cout << MOTION::Statistics::print_stats("Equality", run_time_stats,
+    std::cout << MOTION::Statistics::print_stats("Circuit Equality", run_time_stats,
                                                  comm_stats);
   }
 }
@@ -271,14 +272,8 @@ int main(int argc, char* argv[]) {
   
   try {
 
-    MOTION::WireVector in1 = make_boolean_wires(128);
-    MOTION::WireVector in2 = make_boolean_wires(64);
-    MOTION::WireVector in3 = make_boolean_wires(32);
-    MOTION::WireVector in4 = make_boolean_wires(16);
-    MOTION::WireVector in5 = make_boolean_wires(8);
-    MOTION::WireVector in6 = make_boolean_wires(4);
-    MOTION::WireVector in7 = make_boolean_wires(2);
-    MOTION::WireVector in8 = make_boolean_wires(1);
+    MOTION::WireVector in1 = make_boolean_wires(*options);
+
 
     auto comm_layer = setup_communication(*options);
     comm_layer->reset_transport_statistics();
@@ -290,7 +285,7 @@ int main(int argc, char* argv[]) {
     for (std::size_t i = 0; i < options->num_repetitions; ++i) {
       MOTION::TwoPartyBackend backend(*comm_layer, options->threads,
                                       options->sync_between_setup_and_online, logger);
-      run_circuit(*options, backend, in1, in2, in3, in4, in5, in6, in7, in8);
+      run_circuit(*options, backend, in1);
       comm_layer->sync();
       comm_stats.add(comm_layer->get_transport_statistics());
       comm_layer->reset_transport_statistics();
