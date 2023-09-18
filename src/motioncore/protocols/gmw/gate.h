@@ -471,4 +471,20 @@ class ArithmeticGMWAESBENCHGate : public detail::BasicArithmeticXBooleanGMWUnary
   std::vector<T> randoms_;
 };
 
+template <typename T>
+class ArithmeticGMWMULNIGate : public detail::BasicArithmeticGMWBinaryGate<T> {
+ public:
+  ArithmeticGMWMULNIGate(std::size_t gate_id, GMWProvider&, ArithmeticGMWWireP<T>&&,
+                       ArithmeticGMWWireP<T>&&);
+  bool need_setup() const noexcept override { return false; }
+  bool need_online() const noexcept override { return true; }
+  void evaluate_setup() override {}
+  void evaluate_online() override;
+
+ private:
+  GMWProvider& gmw_provider_;
+  std::size_t mt_offset_;
+  std::vector<ENCRYPTO::ReusableFiberFuture<std::vector<T>>> share_futures_;
+};
+
 }  // namespace MOTION::proto::gmw

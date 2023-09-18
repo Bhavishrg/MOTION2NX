@@ -247,6 +247,7 @@ class GMWProvider : public GateFactory,
   WireVector make_neg_gate(const WireVector& in_a);
   WireVector make_add_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_mul_gate(const WireVector& in_a, const WireVector& in_b);
+  WireVector make_mulni_gate(const WireVector& in_a, const WireVector& in_b);
   WireVector make_sqr_gate(const WireVector& in_a);
   WireVector make_ham_gate(const WireVector& in_a);
   WireVector make_dpfa_gate(const WireVector& in_a);

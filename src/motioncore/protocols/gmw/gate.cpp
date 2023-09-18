@@ -1432,8 +1432,6 @@ ArithmeticGMWDPFAGate<T>::ArithmeticGMWDPFAGate(std::size_t gate_id, GMWProvider
       gmw_provider_(gmw_provider)
           {
             const auto num_simd = this->input_->get_num_simd();
-            share_futures_ = gmw_provider_.register_for_ints_messages<T>(
-              this->gate_id_, num_simd);
           }
 
 template <typename T>
@@ -1490,13 +1488,13 @@ void ArithmeticGMWDPFAGate<T>::evaluate_online() {
     if(my_id==0){
     #pragma omp for 
     for (uint64_t i = 0; i < num_simd; ++i) {
-      DPF_eval_8(0, k0_8, 1);
+      out[i] = DPF_eval_8(0, k0_8, 1);
     }
     }
     else{
       #pragma omp for
       for (uint64_t i = 0; i < num_simd; ++i) {
-        DPF_eval_8(1, k1_8, 1);
+        out[i] = DPF_eval_8(1, k1_8, 1);
       }
     }
   }
@@ -1639,5 +1637,38 @@ template class ArithmeticGMWAESBENCHGate<std::uint8_t>;
 template class ArithmeticGMWAESBENCHGate<std::uint16_t>;
 template class ArithmeticGMWAESBENCHGate<std::uint32_t>;
 template class ArithmeticGMWAESBENCHGate<std::uint64_t>;
+
+template <typename T>
+ArithmeticGMWMULNIGate<T>::ArithmeticGMWMULNIGate(std::size_t gate_id, GMWProvider& gmw_provider,
+                                              ArithmeticGMWWireP<T>&& in_a,
+                                              ArithmeticGMWWireP<T>&& in_b)
+    : detail::BasicArithmeticGMWBinaryGate<T>(gate_id, gmw_provider, std::move(in_a),
+                                              std::move(in_b)),
+      gmw_provider_(gmw_provider) {}
+
+template <typename T>
+void ArithmeticGMWMULNIGate<T>::evaluate_online() {
+  auto num_simd = this->input_a_->get_num_simd();
+  this->input_a_->wait_online();
+  this->input_b_->wait_online();
+  const auto& x = this->input_a_->get_share();
+  const auto& y = this->input_b_->get_share();
+
+
+  auto& out = this->output_->get_share();
+  out.resize(num_simd);
+
+  #pragma omp for
+    for (std::size_t i = 0; i < num_simd; ++i) {
+        out[i] += x[i] * y[i];
+      }
+
+  this->output_->set_online_ready();
+}
+
+template class ArithmeticGMWMULNIGate<std::uint8_t>;
+template class ArithmeticGMWMULNIGate<std::uint16_t>;
+template class ArithmeticGMWMULNIGate<std::uint32_t>;
+template class ArithmeticGMWMULNIGate<std::uint64_t>;
 
 }  // namespace MOTION::proto::gmw

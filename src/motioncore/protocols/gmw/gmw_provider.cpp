@@ -383,6 +383,8 @@ WireVector GMWProvider::make_binary_gate(ENCRYPTO::PrimitiveOperationType op,
       return make_add_gate(in_a, in_b);
     case ENCRYPTO::PrimitiveOperationType::MUL:
       return make_mul_gate(in_a, in_b);
+    case ENCRYPTO::PrimitiveOperationType::MULNI:
+      return make_mulni_gate(in_a, in_b);
     default:
       throw std::logic_error(
           fmt::format("GMW does not support the binary operation {}", ToString(op)));
@@ -609,6 +611,11 @@ WireVector GMWProvider::make_mul_gate(const WireVector& in_a, const WireVector& 
   } else {
     return make_arithmetic_binary_gate<ArithmeticGMWMULGate>(in_a, in_b);
   }
+}
+
+
+WireVector GMWProvider::make_mulni_gate(const WireVector& in_a, const WireVector& in_b) {
+    return make_arithmetic_binary_gate<ArithmeticGMWMULNIGate>(in_a, in_b);
 }
 
 WireVector GMWProvider::make_sqr_gate(const WireVector& in) {

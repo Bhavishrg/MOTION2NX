@@ -42,6 +42,7 @@ enum class PrimitiveOperationType : std::uint8_t {
   NEG,  // for arithmetic circuit only
   ADD,  // for arithmetic circuit only
   MUL,  // for arithmetic circuit only
+  MULNI,  // for arithmetic circuit only
   SQR,  // for arithmetic circuit only
   HAM,  // for arithmetic circuit only
   DPF,  // for arithmetic circuit only
@@ -83,6 +84,9 @@ inline std::string ToString(PrimitiveOperationType t) {
     }
     case PrimitiveOperationType::MUL: {
       return "MUL";
+    }
+    case PrimitiveOperationType::MULNI: {
+      return "MULNI";
     }
     case PrimitiveOperationType::SQR: {
       return "SQR";
