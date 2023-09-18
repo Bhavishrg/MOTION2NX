@@ -13,6 +13,7 @@ add_subdirectory(triple_generator)
 add_subdirectory(dpf_equality)
 add_subdirectory(exact_pm)
 add_subdirectory(approx_pm)
+add_subdirectory(approx_pm2)
 add_subdirectory(equality)
 add_subdirectory(circuit_equality)
 

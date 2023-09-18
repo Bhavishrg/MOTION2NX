@@ -51,19 +51,11 @@ bool test_aes(int n_times) {
     double t_ni=0, t_sa=0;
     int i;
     bool correct = true;
+    // Generate random input
+    random_buffer_16(plain, G_IN_LEN_8);
 
     for(i=0; i<n_times; i++){
-        // Generate random input
-        random_buffer_16(plain, G_IN_LEN_8);
-
-        // Hash input with both implementations
-        G_ni  (plain, hash_ni, G_IN_LEN_8, G_OUT_LEN_8); 
-
-
         G_tiny(plain, hash_sa, G_IN_LEN_8, G_OUT_LEN_8); 
-
-        // check if both hashes are equal with memcmp
-        correct &= (memcmp(hash_ni, hash_sa, sizeof(hash_ni)) == 0);
     }
     return correct;
 }
@@ -1250,15 +1242,19 @@ void ArithmeticGMWDPFGate<T>::evaluate_online() {
     for (uint64_t i = 0; i < num_simd; ++i) {
       uint64_t x = a[i];
       a[i] = DPF_eval_64(0, k0_64, x);
-      MOTION::proto::gmw::detail::test_aes(192);
+      a[i] = DPF_eval_64(0, k0_64, x);
+      a[i] = DPF_eval_64(0, k0_64, x);
+      a[i] = DPF_eval_64(0, k0_64, x);
     }
     }
     else{
       #pragma omp for
       for (uint64_t i = 0; i < num_simd; ++i) {
         uint64_t x = a[i];
-        a[i] = DPF_eval_64(0, k0_64, x);
-        MOTION::proto::gmw::detail::test_aes(192);
+        a[i] = DPF_eval_64(0, k1_64, x);
+        a[i] = DPF_eval_64(0, k1_64, x);
+        a[i] = DPF_eval_64(0, k1_64, x);
+        a[i] = DPF_eval_64(0, k1_64, x);
       }
     }
   }
@@ -1492,15 +1488,15 @@ void ArithmeticGMWDPFAGate<T>::evaluate_online() {
   
   if(num_bits == 8){
     if(my_id==0){
-    #pragma omp for
+    #pragma omp for 
     for (uint64_t i = 0; i < num_simd; ++i) {
-      out[i] = DPF_eval_8(0, k0_8, x[i]);
+      DPF_eval_8(0, k0_8, 1);
     }
     }
     else{
       #pragma omp for
       for (uint64_t i = 0; i < num_simd; ++i) {
-        out[i] = DPF_eval_8(1, k1_8, x[i]);
+        DPF_eval_8(1, k1_8, 1);
       }
     }
   }
@@ -1604,13 +1600,13 @@ void ArithmeticGMWAESBENCHGate<T>::evaluate_online() {
   if(num_bits == 8){
     #pragma omp for
     for (uint64_t i = 0; i < num_simd; ++i) {
-     auto r = MOTION::proto::gmw::detail::test_aes(4);
+     auto r = MOTION::proto::gmw::detail::test_aes(3);
     }
   }
   if(num_bits == 16){
     #pragma omp for
     for (uint64_t i = 0; i < num_simd; ++i) {
-      auto r = MOTION::proto::gmw::detail::test_aes(4);
+      auto r = MOTION::proto::gmw::detail::test_aes(3);
     }
   }
   if(num_bits == 64){

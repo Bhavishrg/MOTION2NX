@@ -82,19 +82,19 @@ std::string AccumulatedRunTimeStats::print_human_readable() const {
      << fmt::format("                    {:>{}s}    {:>{}s}    {:>{}s}\n", "mean", field_width,
                     "median", field_width, "stddev", field_width)
      << "---------------------------------------------------------------------------\n"
-     << format_line("MT Presetup", unit, at(accumulators_, StatID::mt_presetup), field_width)
-     << format_line("MT Setup", unit, at(accumulators_, StatID::mt_setup), field_width)
-     << format_line("SP Presetup", unit, at(accumulators_, StatID::sp_presetup), field_width)
-     << format_line("SP Setup", unit, at(accumulators_, StatID::sp_setup), field_width)
-     << format_line("SB Presetup", unit, at(accumulators_, StatID::sb_presetup), field_width)
-     << format_line("SB Setup", unit, at(accumulators_, StatID::sb_setup), field_width)
-     << format_line("Base OTs", unit, at(accumulators_, StatID::base_ots), field_width)
-     << format_line("OT Extension Setup", unit, at(accumulators_, StatID::ot_extension_setup),
-                    field_width)
+    //  << format_line("MT Presetup", unit, at(accumulators_, StatID::mt_presetup), field_width)
+    //  << format_line("MT Setup", unit, at(accumulators_, StatID::mt_setup), field_width)
+    //  << format_line("SP Presetup", unit, at(accumulators_, StatID::sp_presetup), field_width)
+    //  << format_line("SP Setup", unit, at(accumulators_, StatID::sp_setup), field_width)
+    //  << format_line("SB Presetup", unit, at(accumulators_, StatID::sb_presetup), field_width)
+    //  << format_line("SB Setup", unit, at(accumulators_, StatID::sb_setup), field_width)
+    //  << format_line("Base OTs", unit, at(accumulators_, StatID::base_ots), field_width)
+    //  << format_line("OT Extension Setup", unit, at(accumulators_, StatID::ot_extension_setup),
+                    // field_width)
      << "---------------------------------------------------------------------------\n"
-     << format_line("Preprocessing Total", unit, at(accumulators_, StatID::preprocessing),
-                    field_width)
-     << format_line("Gates Setup", unit, at(accumulators_, StatID::gates_setup), field_width)
+    //  << format_line("Preprocessing Total", unit, at(accumulators_, StatID::preprocessing),
+                    // field_width)
+    //  << format_line("Gates Setup", unit, at(accumulators_, StatID::gates_setup), field_width)
      << format_line("Gates Online", unit, at(accumulators_, StatID::gates_online), field_width)
      << "---------------------------------------------------------------------------\n"
      << format_line("Circuit Evaluation", unit, at(accumulators_, StatID::evaluate), field_width);
@@ -182,9 +182,9 @@ std::string print_stats(const std::string& experiment_name,
      << print_motion_info()
      << "===========================================================================\n"
      << exec_stats.print_human_readable()
-     << "===========================================================================\n"
-     << comm_stats.print_human_readable()
      << "===========================================================================\n";
+    //  << comm_stats.print_human_readable()
+    //  << "===========================================================================\n";
   return ss.str();
 }
 
