@@ -17,6 +17,8 @@ add_subdirectory(approx_pm2)
 add_subdirectory(equality)
 add_subdirectory(circuit_equality)
 add_subdirectory(wildcard_pm)
+add_subdirectory(mult)
+add_subdirectory(naive)
 
 
 if (MOTION_BUILD_ONNX_ADAPTER)
