@@ -1,4 +1,4 @@
-# Match Quest -- Fast and Secure Pattern Matching
+# Match Quest - Fast and Secure Pattern Matching
 
 This directory contains the implementation of the secure pattern matching protocols of Match Quest. Our code is buildt on top of the MOTION2NX framework available at https://github.com/encryptogroup/MOTION2NX. We note that the code is still in its initial stages and under development.
 
@@ -12,6 +12,8 @@ This directory contains the implementation of the secure pattern matching protoc
 
 
 
+## Usage
+
 Build project using 
 ```
 $ CC=gcc CXX=g++ cmake \
@@ -22,7 +24,6 @@ $ CC=gcc CXX=g++ cmake \
     -DMOTION_USE_AVX=AVX2
 $ cmake --build build_debwithrelinfo_gcc
 ```
-##Usage
 
 To test equality, run :
 ```
