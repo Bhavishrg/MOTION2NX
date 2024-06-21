@@ -1,39 +1,66 @@
-# MOTION2NX -- A Framework for Generic Hybrid Two-Party Computation and Private Inference with Neural Networks
+# Match Quest -- Fast and Secure Pattern Matching
 
-This software is an extension of the [MOTION framework for multi-party
-computation](https://github.com/encryptogroup/MOTION).
-We additionally implemented five 2PC protocols with passive security together
-with all 20 possible conversions among each other to enable private evaluation
-of hybrid circuits:
+This directory contains the implementation of the secure pattern matching protocols of Match Quest. Our code is buildt on top of the MOTION2NX framework available at https://github.com/encryptogroup/MOTION2NX. We note that the code is still in its initial stages and under development.
 
-- Yao's Garbled Circuits with FreeXOR and Half-Gates
-- Arithmetic and Boolean variants of Goldreich-Micali-Wigderson
-- Arithmetic and Boolean variants of the secret-sharing-based protocols from [ABY2.0 (Patra et al., USENIX Security '21)](https://eprint.iacr.org/2020/1225)
+## External Dependencies
 
-Moreover, we support private inference with neural networks by providing secure
-tensor data types and specialized building blocks for common tensor operations.
-With support of the [Open Neural Network Exchange (ONNX)](https://onnx.ai) file
-format, this makes our framework interoperable with industry-standard deep
-learning frameworks such as TensorFlow and PyTorch.
-
-Compared to the original MOTION codebase, we made architectural improvements
-to increase flexibility and performance of the framework.
-Although the interfaces of this work are currently not compatible with the
-original framework due to the concurrent development of both branches, it is
-planned to integrate the MOTION2NX features into MOTION itself.
+- [GCC 11.1.0](https://gcc.gnu.org/) or [Clang/LLVM 12.0.1](https://clang.llvm.org/)
+- [CMake 3.21.4](https://cmake.org/)
+- [Boost 1.76.0](https://www.boost.org/)
+- [fmt 8.0.1](https://github.com/fmtlib/fmt)
+- [flatbuffers 2.0.0](https://github.com/google/flatbuffers)
 
 
-More information about this work is given in [this extended
-abstract](https://encrypto.de/papers/BCS21PriMLNeurIPS.pdf) which was accepted
-at the [PriML@NeurIPS 2021](https://priml2021.github.io/) workshop.
-It is the result of Lennart Braun's master's thesis in the [ENCRYPTO
-group](https://encrypto.de) at [TU
-Darmstadt](https://www.informatik.tu-darmstadt.de) supervised by Thomas
-Schneider and Rosario Cammarota.
 
-This code is provided as a experimental implementation for testing purposes and
-should not be used in a productive environment. We cannot guarantee security
-and correctness.
+Build project using 
+```
+$ CC=gcc CXX=g++ cmake \
+    -B build_debwithrelinfo_gcc \
+    -DCMAKE_BUILD_TYPE=DebWithRelInfo \
+    -DMOTION_BUILD_EXE=On \
+    -DMOTION_BUILD_TESTS=On \
+    -DMOTION_USE_AVX=AVX2
+$ cmake --build build_debwithrelinfo_gcc
+```
+##Usage
+
+To test equality, run :
+```
+cd build_debwithrelinfo_gcc
+
+./bin/equality --my-id 0 --party 0,0.0.0.0,7002 --party 1,0.0.0.0,7003 --repetitions 10 --num-simd 100 --ring-size 8
+
+./bin/equality --my-id 1 --party 0,0.0.0.0,7002 --party 1,0.0.0.0,7003  --repetitions 10 --num-simd 100 --ring-size 8
+
+```
+
+`ring-size` denotes the input length (8, 32, 64, 256).
+
+Use :
+- `./bin/equality`: Benchmark the performance of the our equality protocol.
+- `/bin/circuit_equality`: Benchmark the performance of the circuit based equality protocol.
+- `/bin/dpf_equality`: Benchmark the performance of DPF based equality protocol.
+
+
+
+To test pattern matching protocols, run :
+```
+./bin/exact_pm --my-id 0 --party 0,0.0.0.0,7002 --party 1,0.0.0.0,7003 --pattern-size 80 --text-size 800
+
+./bin/exact_pm --my-id 1 --my-id 1 --party 0,0.0.0.0,7002 --party 1,0.0.0.0,7003  --pattern-size 80 --text-size 800
+
+``` 
+
+`pattern-size` and `text-size` are configurable.
+
+Use :
+
+- `exact_pm`: Benchmark the performance of our exact pattern matching protocol.
+- `wildcard_pm`: Benchmark the performance of our wildcard pattern matching protocol.
+- `approx_pm`: Benchmark the performance of our approximate pattern matching protocol .
+- `naive_exact_pm`: Benchmark the performance of naive approximate pattern matching protocol.
+- `naive_wildcard_pm`: Benchmark the performance of naive wildcard pattern matching.
+- `naive_approx_pm2`: Benchmark the performance of naive approximate pattern matching protocol.
 
 
 ## Build Instructions
@@ -100,28 +127,3 @@ needs additionally be passed to CMake:
 - `-DMOTION_BUILD_ONNX_ADAPTER=On`
 
 This builds the library target `motion_onnx` and the `onnx2motion` executable.
-
-
-
-### Examples
-
-
-#### Using the MOTION2NX Low-Level API
-
-See [here](src/examples/millionaires_problem) for an example solution of Yao's
-Millionaires' Problem.
-
-
-#### Using the `onnx2motion` Application
-
-```
-$ ./bin/onnx2motion \
-    --my-id ${PARTY_ID} \
-    --party 0,::1,7000 \
-    --party 1,::1,7001 \
-    --arithmetic-protocol GMW \
-    --boolean-protocol GMW \
-    --model /path/to/model.onnx \
-    --json
-```
-with "${PARTY_ID}" either 0 or 1.
