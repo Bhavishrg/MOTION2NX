@@ -1,6 +1,6 @@
 # Match Quest - Fast and Secure Pattern Matching
 
-This directory contains the implementation of the secure pattern matching protocols of Match Quest. Our code is buildt on top of the MOTION2NX framework available at https://github.com/encryptogroup/MOTION2NX. We note that the code is still in its initial stages and under development.
+This directory contains the implementation of the secure pattern matching protocols of Match Quest. Our code is built on top of the MOTION2NX framework available at https://github.com/encryptogroup/MOTION2NX. We note that the code is still in its initial stages and under development.
 
 ## External Dependencies
 
@@ -38,9 +38,9 @@ cd build_debwithrelinfo_gcc
 `ring-size` denotes the input length (8, 32, 64, 256).
 
 Use :
-- `./bin/equality`: Benchmark the performance of the our equality protocol.
-- `/bin/circuit_equality`: Benchmark the performance of the circuit based equality protocol.
-- `/bin/dpf_equality`: Benchmark the performance of DPF based equality protocol.
+- `./bin/equality`: Benchmark the performance of our equality protocol.
+- `/bin/circuit_equality`: Benchmark the performance of the circuit-based equality protocol.
+- `/bin/dpf_equality`: Benchmark the performance of the DPF-based equality protocol.
 
 
 
@@ -58,7 +58,7 @@ Use :
 
 - `exact_pm`: Benchmark the performance of our exact pattern matching protocol.
 - `wildcard_pm`: Benchmark the performance of our wildcard pattern matching protocol.
-- `approx_pm`: Benchmark the performance of our approximate pattern matching protocol .
+- `approx_pm`: Benchmark the performance of our approximate pattern matching protocol.
 - `naive_exact_pm`: Benchmark the performance of naive approximate pattern matching protocol.
 - `naive_wildcard_pm`: Benchmark the performance of naive wildcard pattern matching.
 - `naive_approx_pm2`: Benchmark the performance of naive approximate pattern matching protocol.
