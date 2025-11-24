@@ -1,4 +1,4 @@
-# ExPat -- Express and Secure Pattern Matching
+# Match Quest: Fast and Secure Pattern Matching.
 
 This software is the preliminary implementation of the paper "ExPat: Express and Secure Pattern Matching" which builds on the MOTION2NX framework available at https://github.com/encryptogroup/MOTION2NX.
 
